@@ -9,6 +9,12 @@ import { useScene } from "@/hooks/useScene"
 const TAG_POSITIONS = ["left-[2%]", "left-[36%]", "left-[70%]"] as const
 const TAG_DEPTHS = [50, 100, 150] as const
 
+// The window is drawn at 1000x520 and scaled per breakpoint, in CSS so the prerendered
+// HTML is already the right size. Tag text is counter-sized to read at about 13px.
+const WINDOW_SCALE =
+  "scale-[.37] min-[480px]:scale-[.46] sm:scale-[.62] md:scale-[.76] lg:scale-[.92] xl:scale-100"
+const TAG_SIZE = "text-[36px] min-[480px]:text-[30px] sm:text-[22px] md:text-[18px] lg:text-[15px] xl:text-sm"
+
 /** Name, purpose, and the app window that comes apart in 3D, then exits. */
 export function Hero() {
   const { ref, progress } = useScene<HTMLElement>()
@@ -34,19 +40,21 @@ export function Hero() {
           </div>
         </m.div>
 
-        <div className="absolute inset-x-0 bottom-[4vh] flex justify-center perspective-[1600px]">
-          <m.div style={motion.rig} className="relative transform-3d">
-            <InspectorWindow data={inspector} depth={motion.depth} />
-            {site.hero.tags.map((tag, i) => (
-              <m.span
-                key={tag}
-                style={{ opacity: motion.tags.opacity, z: TAG_DEPTHS[i] }}
-                className={`absolute -bottom-8 whitespace-nowrap font-mono text-sm font-semibold text-leaf ${TAG_POSITIONS[i]}`}
-              >
-                {tag}
-              </m.span>
-            ))}
-          </m.div>
+        <div className="absolute inset-x-0 bottom-[4vh] flex justify-center">
+          <div className={`origin-bottom perspective-[1600px] ${WINDOW_SCALE}`}>
+            <m.div style={motion.rig} className="relative transform-3d">
+              <InspectorWindow data={inspector} depth={motion.depth} />
+              {site.hero.tags.map((tag, i) => (
+                <m.span
+                  key={tag}
+                  style={{ opacity: motion.tags.opacity, z: TAG_DEPTHS[i] }}
+                  className={`absolute -bottom-[2.2em] whitespace-nowrap font-mono font-semibold text-leaf ${TAG_SIZE} ${TAG_POSITIONS[i]}`}
+                >
+                  {tag}
+                </m.span>
+              ))}
+            </m.div>
+          </div>
         </div>
       </div>
     </section>

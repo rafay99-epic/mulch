@@ -1,7 +1,7 @@
 // Makes dist/index.html paint without waiting on anything but itself:
 //  1. inlines the server-rendered page, so the first paint needs no JS;
 //  2. inlines the stylesheet (about 10 KB gzipped), removing the render-blocking request;
-//  3. preloads the two fonts the hero headline and copy use.
+//  3. preloads the serif the hero headline uses (body text uses system fonts).
 // Runs after `vite build` and `vite build --ssr`; Node runs this file directly (type stripping).
 import { readdir, readFile, rm, writeFile } from "node:fs/promises"
 
@@ -9,7 +9,7 @@ const dist = new URL("../dist/", import.meta.url)
 const ssrDir = new URL("../dist-ssr/", import.meta.url)
 const indexFile = new URL("index.html", dist)
 const rootMarker = '<div id="root"></div>'
-const heroFonts = [/^instrument-serif-latin-400-normal-.*\.woff2$/, /^inter-tight-latin-wght-normal-.*\.woff2$/]
+const heroFonts = [/^instrument-serif-latin-400-normal-.*\.woff2$/]
 
 const { render } = (await import(new URL("entry-server.js", ssrDir).href)) as { render: () => string }
 let html = await readFile(indexFile, "utf8")

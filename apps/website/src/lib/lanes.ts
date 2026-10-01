@@ -14,7 +14,21 @@ export interface ChipLayout {
   y1: number
 }
 
+export interface LaneHeader {
+  mode: Mode
+  x: number
+  y: number
+  width: number
+}
+
+export interface LanesLayout {
+  headers: LaneHeader[]
+  chips: ChipLayout[]
+}
+
 const LANE_ORDER: readonly Mode[] = ["auto", "ask", "never"]
+/** Below this width the three lanes stack vertically instead of sitting side by side. */
+const STACK_BELOW = 640
 
 /** Small seeded PRNG so the scatter is identical on every render and every visit. */
 function mulberry32(seed: number) {
@@ -28,22 +42,48 @@ function mulberry32(seed: number) {
 }
 
 /**
- * Lays chips out for the "Everything gets a lane" scene: a random scatter over the
- * lower part of the stage, and a target slot in the chip's lane column.
+ * Lays out the "Everything gets a lane" scene: lane headers, a random scatter for each
+ * chip, and its target slot. Wide screens get three columns side by side; narrow
+ * screens stack the lanes, two chips per row.
  */
-export function layoutLanes(modes: readonly Mode[], { width, height }: Size, seed = 11): ChipLayout[] {
+export function layoutLanes(modes: readonly Mode[], { width, height }: Size, seed = 11): LanesLayout {
   const random = mulberry32(seed)
   const gutter = width * 0.06
-  const column = (width - gutter * 2) / LANE_ORDER.length
+  const inner = width - gutter * 2
+  const stacked = width < STACK_BELOW
+  const chipWidth = stacked ? 140 : 190
+  const counts = Object.fromEntries(LANE_ORDER.map((mode) => [mode, modes.filter((m) => m === mode).length])) as Record<Mode, number>
+
+  const headers: LaneHeader[] = []
+  const slotOrigin = {} as Record<Mode, { x: number; y: number }>
+  if (stacked) {
+    const headerHeight = 34
+    const rowHeight = 30
+    let y = height * 0.3
+    for (const mode of LANE_ORDER) {
+      headers.push({ mode, x: gutter, y, width: inner })
+      slotOrigin[mode] = { x: gutter, y: y + headerHeight + 8 }
+      y += headerHeight + 8 + Math.ceil(counts[mode] / 2) * rowHeight + 14
+    }
+  } else {
+    const column = inner / LANE_ORDER.length
+    LANE_ORDER.forEach((mode, i) => {
+      headers.push({ mode, x: gutter + i * column, y: height * 0.27, width: column - 24 })
+      slotOrigin[mode] = { x: gutter + i * column, y: height * 0.38 }
+    })
+  }
+
   const filled: Record<Mode, number> = { auto: 0, ask: 0, never: 0 }
-  return modes.map((mode) => {
+  const chips = modes.map((mode) => {
     const slot = filled[mode]++
+    const origin = slotOrigin[mode]
     return {
-      x0: gutter + random() * (width - gutter * 3),
+      x0: gutter + random() * Math.max(0, inner - chipWidth),
       y0: height * 0.3 + random() * height * 0.55,
       r0: (random() - 0.5) * 60,
-      x1: gutter + LANE_ORDER.indexOf(mode) * column,
-      y1: height * 0.38 + slot * 40,
+      x1: stacked ? origin.x + (slot % 2) * (inner / 2) : origin.x,
+      y1: stacked ? origin.y + Math.floor(slot / 2) * 30 : origin.y + slot * 40,
     }
   })
+  return { headers, chips }
 }

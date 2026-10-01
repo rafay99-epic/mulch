@@ -17,7 +17,7 @@ export function Install() {
       </Reveal>
       <Reveal className="mx-auto mt-14 max-w-[860px]">
         <div className="relative rounded-[14px] border border-frame bg-panel">
-          <pre className="overflow-x-auto px-7 py-6 pr-28 font-mono text-base leading-[1.8]">
+          <pre className="whitespace-pre-wrap break-all px-5 pb-5 pt-14 font-mono text-sm leading-[1.8] sm:overflow-x-auto sm:whitespace-pre sm:break-normal sm:px-7 sm:py-6 sm:pr-28 sm:text-base">
             <code>{site.installCommand.join("\n")}</code>
           </pre>
           <button

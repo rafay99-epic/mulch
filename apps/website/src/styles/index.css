@@ -1,8 +1,6 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
-@import "@fontsource-variable/inter-tight";
-@import "@fontsource-variable/jetbrains-mono";
 @import "@fontsource/instrument-serif/latin-400.css";
 @import "@fontsource/instrument-serif/latin-400-italic.css";
 @import "@fontsource/anton/latin-400.css";
@@ -12,7 +10,7 @@
 /* Mulch tokens: brand color, data colors, surfaces, and the four type families. */
 @theme {
     --font-serif: "Instrument Serif", Georgia, serif;
-    --font-mono: "JetBrains Mono Variable", ui-monospace, monospace;
+    --font-mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
     --font-display: "Anton", Impact, sans-serif;
     --color-leaf: #30d158;
     --color-ask: #ff9f0a;
@@ -25,7 +23,7 @@
 
 @theme inline {
     --font-heading: var(--font-sans);
-    --font-sans: "Inter Tight Variable", ui-sans-serif, system-ui, sans-serif;
+    --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
     --color-sidebar-ring: var(--sidebar-ring);
     --color-sidebar-border: var(--sidebar-border);
     --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);

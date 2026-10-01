@@ -14,7 +14,7 @@ export function InspectorWindow({ data, depth }: InspectorWindowProps) {
   const flat = useMotionValue(0)
   const d = depth ?? flat
   return (
-    <div className="flex h-[min(520px,56vh)] w-[min(1000px,88vw)] flex-col rounded-[14px] border border-[#3a3a3c] bg-panel text-[13px] transform-3d">
+    <div className="flex h-[520px] w-[1000px] flex-col rounded-[14px] border border-[#3a3a3c] bg-panel text-[13px] transform-3d">
       <div className="flex h-11 flex-none items-center gap-2 border-b border-line px-4">
         {[0, 1, 2].map((i) => (
           <i key={i} className="size-3 rounded-full bg-[#3a3a3c]" />

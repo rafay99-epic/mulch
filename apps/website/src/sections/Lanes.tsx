@@ -16,24 +16,29 @@ export function Lanes() {
   const motion = useLanesMotion(progress)
   const stage = useRef<HTMLDivElement>(null)
   const size = useElementSize(stage)
-  const { items } = site.lanes
-  const layout = useMemo(() => (size.width ? layoutLanes(items.map((item) => item.mode), size) : []), [items, size])
+  const { items, lanes } = site.lanes
+  const layout = useMemo(() => (size.width ? layoutLanes(items.map((item) => item.mode), size) : undefined), [items, size])
 
   return (
     <section ref={ref} id="safety" className="relative h-[280vh]">
       <div ref={stage} className="sticky top-0 h-svh overflow-hidden px-[6vw] pt-[calc(3.5rem+6vh)]">
-        <h2 className="mb-[4vh] text-center font-serif text-[clamp(48px,6.4vw,104px)] leading-[0.98]">{site.lanes.title}</h2>
-        <div className="grid grid-cols-3 gap-[3vw] border-b border-line pb-3 font-serif text-[clamp(26px,2.6vw,38px)]">
-          {site.lanes.lanes.map((lane) => (
-            <div key={lane.mode} className="flex items-center gap-3">
+        <h2 className="text-center font-serif text-[clamp(44px,6.4vw,104px)] leading-[0.98]">{site.lanes.title}</h2>
+        {layout?.headers.map((header) => {
+          const lane = lanes.find((l) => l.mode === header.mode)
+          return lane ? (
+            <div
+              key={header.mode}
+              style={{ left: header.x, top: header.y, width: header.width }}
+              className="absolute flex items-center gap-3 border-b border-line pb-2 font-serif text-[clamp(24px,2.6vw,38px)] leading-none"
+            >
               <i className={cn("size-3 rounded-full", MODE_COLOR[lane.mode])} />
               {lane.label}
-              <small className="ml-1.5 hidden font-mono text-[13px] text-muted-foreground lg:inline">{lane.hint}</small>
+              <small className="ml-1.5 font-mono text-[13px] text-muted-foreground">{lane.hint}</small>
             </div>
-          ))}
-        </div>
+          ) : null
+        })}
         <ul aria-label="Examples by lane" className="pointer-events-none absolute inset-0">
-          {layout.map((chip, i) => {
+          {layout?.chips.map((chip, i) => {
             const item = items[i]
             return item ? <Chip key={item.name} name={item.name} mode={item.mode} layout={chip} sorted={motion.sorted} /> : null
           })}
@@ -54,8 +59,11 @@ function Chip({ name, mode, layout, sorted }: { name: string; mode: Mode; layout
   const y = useTransform(sorted, (t) => layout.y0 + (layout.y1 - layout.y0) * t)
   const rotate = useTransform(sorted, (t) => layout.r0 * (1 - t))
   return (
-    <m.li style={{ x, y, rotate }} className="absolute left-0 top-0 flex items-center gap-2 whitespace-nowrap py-1.5 font-mono text-[15px]">
-      <i className={cn("h-3.5 w-[18px] flex-none rounded-[3px]", MODE_COLOR[mode])} />
+    <m.li
+      style={{ x, y, rotate }}
+      className="absolute left-0 top-0 flex items-center gap-2 whitespace-nowrap py-1 font-mono text-[13px] sm:py-1.5 sm:text-[15px]"
+    >
+      <i className={cn("h-3 w-4 flex-none rounded-[3px] sm:h-3.5 sm:w-[18px]", MODE_COLOR[mode])} />
       {name}
     </m.li>
   )

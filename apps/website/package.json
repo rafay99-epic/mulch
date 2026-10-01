@@ -9,8 +9,6 @@
     "typecheck": "tsc -b"
   },
   "dependencies": {
-    "@fontsource-variable/inter-tight": "^5.3.0",
-    "@fontsource-variable/jetbrains-mono": "^5.3.0",
     "@fontsource/anton": "^5.3.0",
     "@fontsource/instrument-serif": "^5.3.0",
     "cn": "^0.4.0",

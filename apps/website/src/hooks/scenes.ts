@@ -29,13 +29,16 @@ export function useHeroMotion(progress: MotionValue<number>) {
   }
 }
 
-/** Ledger: the big number tracks out, the caption wipes in, the items slide past. */
-export function useLedgerMotion(progress: MotionValue<number>) {
+/**
+ * Ledger: the big number tracks out, the caption wipes in, and the items slide left
+ * by `travel` pixels, so the last one ends in view at any width.
+ */
+export function useLedgerMotion(progress: MotionValue<number>, travel: MotionValue<number>) {
   return {
     spread: useTransform(progress, [0, 1], [0, 6]),
     scaleY: useTransform(progress, [0, 1], [1, 1.25]),
     caption: useTransform(progress, [0.15, 0.48], ["inset(0 100% 0 0)", "inset(0 0% 0 0)"]),
-    strip: useTransform(progress, [0, 1], ["0%", "-55%"]),
+    strip: useTransform(() => -progress.get() * travel.get()),
   }
 }
 
