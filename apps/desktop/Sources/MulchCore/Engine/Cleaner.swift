@@ -1,12 +1,8 @@
 import Foundation
 
-/// Deletes findings from a scan. Every item is checked again right before it goes:
-/// it must still exist, stay inside its folder, avoid every never path, have its
-/// blocking apps closed, and be unchanged since the scan. Deletes are permanent.
 public struct Cleaner: Sendable {
     public enum Verdict: Equatable, Sendable {
         case delete(URL)
-        /// Deleted by something else since the scan.
         case gone
         case refuse(String)
     }

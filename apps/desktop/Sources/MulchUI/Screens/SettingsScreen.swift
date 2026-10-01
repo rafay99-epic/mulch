@@ -38,7 +38,6 @@ public struct SettingsActions {
     }
 }
 
-/// The native Settings window (Cmd+comma): general, rules, folders, history.
 public struct SettingsScreen: View {
     let sections: [RuleSection]
     let roots: [String]

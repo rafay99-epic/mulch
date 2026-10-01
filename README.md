@@ -55,9 +55,20 @@ Local builds sign with `CODESIGN_IDENTITY`, else your Apple Development certific
 
 ## Logs and crashes
 
-Each build writes `~/Library/Logs/<app name>/activity.log` (Settings > General > Activity log): launches with version and commit, scans, cleans, skips, failures and updates, as `<time>  INFO|ERROR|CRASH  <message>`. After a crash, the next launch adds a CRASH line pointing at the report macOS wrote in `~/Library/Logs/DiagnosticReports`. To follow a running app:
+Everything is logged to `~/.mulch/logs/` (Settings > General > Activity log shows it in Finder):
+
+```
+~/.mulch/logs/
+  mulch.log         Mulch
+  mulch-dev.log     Mulch Dev
+  mulch.1.log       previous file, rotated past 5 MB
+  crashes/          copies of macOS crash reports
+```
+
+Each line is `<time>  INFO|ERROR|CRASH  <area>: <message>`. It covers launch and quit (version, commit, macOS, pid), config and history loads, every scan with its trigger, per-rule results and duration, every clean with each item removed, skipped or failed, settings changes, UI windows, background wakes, notifications and updates. After a crash, the next launch copies the macOS report into `crashes/` and logs a CRASH line. If the app ended without quitting and left no report (force quit, killed, power loss), that is logged too.
 
 ```sh
+tail -f ~/.mulch/logs/mulch.log
 log stream --level info --predicate 'subsystem BEGINSWITH "com.rafay99.mulch"'
 ```
 

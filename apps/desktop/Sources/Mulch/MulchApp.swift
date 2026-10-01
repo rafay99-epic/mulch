@@ -1,8 +1,6 @@
 import MulchUI
 import SwiftUI
 
-/// Menu bar first. The main window opens on first launch for setup and afterwards
-/// only on request. Settings is the standard Cmd+comma window.
 @main
 struct MulchApp: App {
     @State private var store: AppStore

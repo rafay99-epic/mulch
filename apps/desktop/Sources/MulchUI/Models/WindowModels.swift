@@ -1,8 +1,5 @@
 import Foundation
 
-// View models for the main window, settings and first run.
-
-/// A rule in the sidebar.
 public struct RuleListItem: Identifiable, Hashable, Sendable {
     public let id: String
     public let title: String
@@ -27,14 +24,12 @@ public struct RuleListSection: Identifiable, Hashable, Sendable {
     }
 }
 
-/// The selected rule, shown above its items.
 public struct RuleSummary: Hashable, Sendable {
     public let id: String
     public let title: String
     public let mode: CleanMode
     public let readyBytes: Int64
     public let readyCount: Int
-    /// Why this rule's items are safe to remove.
     public let why: String
 
     public init(id: String, title: String, mode: CleanMode, readyBytes: Int64, readyCount: Int, why: String) {
@@ -47,10 +42,8 @@ public struct RuleSummary: Hashable, Sendable {
     }
 }
 
-/// One item of the selected rule.
 public struct ItemRow: Identifiable, Hashable, Sendable {
     public let id: String
-    /// Path relative to the rule's folder.
     public let title: String
     public let bytes: Int64
     public let status: String
@@ -65,7 +58,6 @@ public struct ItemRow: Identifiable, Hashable, Sendable {
     }
 }
 
-/// Everything known about the selected item.
 public struct ItemDetail: Hashable, Sendable {
     public let id: String
     public let name: String
@@ -99,14 +91,11 @@ public struct ItemDetail: Hashable, Sendable {
     }
 }
 
-/// A rule group on the first-run screen.
 public struct FirstRunRow: Identifiable, Hashable, Sendable {
     public let id: String
     public let title: String
-    /// Short note in orange, e.g. "asks first" or "not running".
     public let tag: String?
     public let bytes: Int64
-    /// The scan has finished this group.
     public let done: Bool
     public let enabled: Bool
 

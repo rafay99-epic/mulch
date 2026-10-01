@@ -25,7 +25,6 @@ public struct InspectorActions {
     }
 }
 
-/// The main window: rules, the selected rule's items, and the selected item's details.
 public struct InspectorScreen: View {
     let sections: [RuleListSection]
     @Binding var selectedRule: String?
@@ -83,8 +82,6 @@ public struct InspectorScreen: View {
         }
     }
 
-    // MARK: Panes
-
     private var sidebar: some View {
         List(selection: $selectedRule) {
             ForEach(sections) { section in
@@ -95,7 +92,6 @@ public struct InspectorScreen: View {
                                 .foregroundStyle(item.mode == .ask ? Theme.ask : .primary)
                                 .lineLimit(1)
                             Spacer()
-                            // Command rules like "delete unavailable simulators" have no measurable size.
                             Text(item.bytes > 0 ? Theme.bytes(item.bytes) : "")
                                 .font(.callout)
                                 .monospacedDigit()
@@ -180,7 +176,6 @@ public struct InspectorScreen: View {
     }
 }
 
-/// Details and actions for one item.
 private struct ItemInspector: View {
     let detail: ItemDetail
     let isBusy: Bool

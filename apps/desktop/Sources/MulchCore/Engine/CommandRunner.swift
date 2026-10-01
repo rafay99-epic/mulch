@@ -1,7 +1,5 @@
 import Foundation
 
-/// Runs command line tools without blocking threads. GUI apps start with a bare
-/// `PATH`, so tools are looked up in the usual install locations too.
 public struct CommandRunner: Sendable {
     public struct Result: Sendable {
         public let status: Int32
@@ -34,9 +32,6 @@ public struct CommandRunner: Sendable {
             .first { FileManager.default.isExecutableFile(atPath: $0.path) }
     }
 
-    /// Runs `tool` and returns its exit status and combined output. Output goes to a
-    /// temp file so a chatty tool can never fill a pipe and hang. The process is
-    /// terminated on timeout or task cancellation.
     public func run(_ tool: String, _ arguments: [String], timeout: Duration = .seconds(300)) async throws -> Result {
         guard let executable = locate(tool) else { throw Failure.notFound(tool) }
 
@@ -83,13 +78,11 @@ public struct CommandRunner: Sendable {
         return Result(status: status, output: String(decoding: data, as: UTF8.self))
     }
 
-    /// True when a process whose command line matches `pattern` is running.
     public func isProcessRunning(_ pattern: String) async -> Bool {
         (try? await run("pgrep", ["-f", pattern], timeout: .seconds(10)))?.succeeded ?? false
     }
 }
 
-/// Lets the watchdog and cancellation handler terminate a `Process` across tasks.
 private final class ProcessHandle: @unchecked Sendable {
     private let process: Process
     init(_ process: Process) { self.process = process }

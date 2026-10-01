@@ -28,8 +28,6 @@ public struct PopoverActions {
     }
 }
 
-/// The menu bar window: one number, the biggest rules, the inbox, and the schedule.
-/// Fixed width and no animated height changes.
 public struct PopoverScreen: View {
     let model: PopoverModel
     let actions: PopoverActions

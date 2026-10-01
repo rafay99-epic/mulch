@@ -1,7 +1,5 @@
 import Foundation
 
-/// User settings, stored as JSON at `~/.config/mulch/config.json` so it can be
-/// shared between Macs through dotfiles. Missing keys fall back to defaults.
 public struct Config: Codable, Sendable, Equatable {
     public struct Override: Codable, Sendable, Equatable {
         public var mode: Mode?
@@ -49,7 +47,6 @@ public struct Config: Codable, Sendable, Equatable {
         onboarded = try c.decodeIfPresent(Bool.self, forKey: .onboarded) ?? defaults.onboarded
     }
 
-    /// The catalog with this config's overrides applied.
     public func effective(_ rules: [Rule]) -> [EffectiveRule] {
         rules.map { rule in
             let override = overrides[rule.id]
@@ -76,7 +73,6 @@ public struct Config: Codable, Sendable, Equatable {
     }
 }
 
-/// One finished sweep, kept for the history chart.
 public struct Run: Codable, Sendable, Identifiable, Equatable {
     public enum Trigger: String, Codable, Sendable { case scheduled, manual }
 
@@ -107,8 +103,6 @@ public struct Run: Codable, Sendable, Identifiable, Equatable {
     }
 }
 
-/// When the weekly sweep should next run. Kept separate from the OS scheduler
-/// so a reboot or relaunch never resets the clock.
 public enum SweepSchedule {
     public static func lastScheduled(in history: [Run]) -> Date? {
         history.last { $0.trigger == .scheduled }?.date

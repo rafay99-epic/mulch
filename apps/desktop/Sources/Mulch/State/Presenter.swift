@@ -2,8 +2,6 @@ import Foundation
 import MulchCore
 import MulchUI
 
-/// Maps engine values to the plain view models MulchUI renders. Pure functions,
-/// the only place that knows both sides.
 enum Presenter {
     static func mode(_ mode: Mode) -> CleanMode {
         switch mode {
@@ -21,8 +19,6 @@ enum Presenter {
         }
     }
 
-    // MARK: Popover
-
     static func popover(_ store: AppStore, updater: Updater) -> PopoverModel {
         var model = PopoverModel()
         model.reclaimable = store.report?.autoBytes ?? 0
@@ -39,7 +35,6 @@ enum Presenter {
         return model
     }
 
-    /// The five rules with the most to clean now.
     static func bars(_ report: ScanReport?) -> [BarItem] {
         (report?.rules ?? [])
             .filter { $0.rule.mode != .off && $0.eligibleBytes > 0 }
@@ -64,9 +59,6 @@ enum Presenter {
             .reduce(0) { $0 + $1.freedBytes }
     }
 
-    // MARK: Main window
-
-    /// Rules that found something: weekly ones first, then those that ask.
     static func ruleList(_ report: ScanReport?) -> [RuleListSection] {
         let visible = (report?.rules ?? []).filter { !$0.findings.isEmpty }.sorted { $0.totalBytes > $1.totalBytes }
         return [("Weekly", Mode.auto), ("Asks first", Mode.ask)].compactMap { title, mode in
@@ -113,7 +105,6 @@ enum Presenter {
         )
     }
 
-    /// Plain-language reason a rule's items are safe to remove.
     static func why(_ rule: EffectiveRule) -> String {
         var parts: [String] = []
         switch rule.rule.target {
@@ -141,14 +132,11 @@ enum Presenter {
         }
     }
 
-    /// The path below the rule's folder, e.g. `echoes/apps/game/build` under `~/Code`.
     static func relativeTitle(_ finding: Finding) -> String {
         guard let path = finding.url?.path, let root = finding.root?.path else { return finding.title }
         let base = root.hasSuffix("/") ? root : root + "/"
         return path.hasPrefix(base) ? String(path.dropFirst(base.count)) : finding.title
     }
-
-    // MARK: First run
 
     static func firstRunRows(_ store: AppStore) -> [FirstRunRow] {
         let effective = store.config.effective(store.engine.rules)
@@ -177,8 +165,6 @@ enum Presenter {
             )
         }
     }
-
-    // MARK: Settings
 
     static func ruleSections(_ store: AppStore) -> [RuleSection] {
         let effective = store.config.effective(store.engine.rules)

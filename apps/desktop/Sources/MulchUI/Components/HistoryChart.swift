@@ -1,7 +1,6 @@
 import Charts
 import SwiftUI
 
-/// Space freed per run. Scheduled runs are green, manual ones white.
 public struct HistoryChart: View {
     let points: [HistoryPoint]
 

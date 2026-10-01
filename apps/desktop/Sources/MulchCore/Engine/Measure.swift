@@ -2,7 +2,6 @@ import Foundation
 
 public struct Measurement: Sendable, Equatable {
     public var bytes: Int64
-    /// Newest modification of the item or anything inside it.
     public var newest: Date?
 }
 
@@ -12,9 +11,6 @@ public enum Measure {
         .contentModificationDateKey, .linkCountKey,
     ]
 
-    /// Allocated size on disk and newest modification date, in one walk.
-    /// Hard links are counted once; symlinks are not followed. Stops early when the
-    /// calling task is cancelled.
     public static func of(_ url: URL) -> Measurement {
         let own = try? url.resourceValues(forKeys: keys)
         var result = Measurement(bytes: 0, newest: own?.contentModificationDate)
@@ -44,7 +40,6 @@ public enum Measure {
         return result
     }
 
-    /// Reads the date fresh from disk; `URL` caches resource values, which would hide later changes.
     public static func modificationDate(of url: URL) -> Date? {
         var fresh = url
         fresh.removeAllCachedResourceValues()
@@ -60,7 +55,6 @@ public enum Measure {
     }
 }
 
-/// Free space on the volume holding `url`.
 public enum DiskSpace {
     public static func available(at url: URL = FileManager.default.homeDirectoryForCurrentUser) -> Int64? {
         try? url.resourceValues(forKeys: [.volumeAvailableCapacityForImportantUsageKey])
@@ -68,7 +62,6 @@ public enum DiskSpace {
     }
 }
 
-/// Parses sizes like `5.463GB` or `242.9MB (100%)` from tool output.
 public enum HumanBytes {
     public static func parse(_ text: some StringProtocol) -> Int64? {
         guard let match = String(text).firstMatch(of: #/^\s*([0-9]+(?:\.[0-9]+)?)\s*([kKMGTP]?)(i?)B/#),

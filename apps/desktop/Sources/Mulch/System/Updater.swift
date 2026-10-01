@@ -2,9 +2,6 @@ import AppKit
 import Foundation
 import Observation
 
-/// Keeps Stable on the newest release. Checks the latest GitHub release shortly after
-/// launch and every six hours, and installs a newer one by itself once the app is
-/// idle: the release zip replaces the bundle. Dev builds never update.
 @Observable
 final class Updater {
     struct Release: Equatable {
@@ -24,13 +21,10 @@ final class Updater {
     private(set) var status = Status.idle
     @ObservationIgnored private let isIdle: () -> Bool
 
-    /// Off for Dev and for `swift run`, which has no bundle to replace.
     static var isEnabled: Bool {
         Channel.current.updates && Bundle.main.bundleURL.pathExtension == "app"
     }
 
-    /// `isIdle` says when replacing the app would not interrupt a clean. Lives as
-    /// long as the app.
     init(isIdle: @escaping () -> Bool) {
         self.isIdle = isIdle
         guard Self.isEnabled else { return }
@@ -58,20 +52,25 @@ final class Updater {
         }
     }
 
-    /// Automatic checks install right away when idle, once per version, so a broken
-    /// release cannot put the app in an update loop. Manual installs always run.
     func check(automatic: Bool = false) async {
         guard Self.isEnabled, status != .checking, status != .installing else { return }
         status = .checking
+        Log.info("update: checking (\(automatic ? "automatic" : "manual")), current \(Channel.version)")
         do {
-            guard let release = try await Self.latest(), release.version > Int(Channel.version) ?? 0 else {
+            let latest = try await Self.latest()
+            guard let release = latest, release.version > Int(Channel.version) ?? 0 else {
+                Log.info("update: up to date, latest release \(latest.map { String($0.version) } ?? "none")")
                 status = .upToDate
                 return
             }
             status = .available(release)
             Log.info("update: version \(release.version) available")
             let attempted = UserDefaults.standard.integer(forKey: "autoUpdateAttempt")
-            if automatic, isIdle(), attempted != release.version {
+            if automatic, attempted == release.version {
+                Log.info("update: \(release.version) already tried automatically, waiting for a manual install")
+            } else if automatic, !isIdle() {
+                Log.info("update: postponed, a clean is running")
+            } else if automatic {
                 UserDefaults.standard.set(release.version, forKey: "autoUpdateAttempt")
                 install()
             }
@@ -81,8 +80,6 @@ final class Updater {
         }
     }
 
-    /// Hands off to a shell script that waits for the app to quit, swaps the bundle,
-    /// logs the result and reopens the app.
     func install() {
         guard let release = available else { return }
         status = .installing
@@ -107,7 +104,6 @@ final class Updater {
         }
     }
 
-    /// The latest release, titled `Mulch <version>`, with its zip.
     private static func latest() async throws -> Release? {
         guard let url = URL(string: "https://api.github.com/repos/\(repository)/releases/latest") else { return nil }
         var request = URLRequest(url: url, timeoutInterval: 20)
@@ -136,9 +132,6 @@ final class Updater {
         let assets: [Asset]
     }
 
-    /// Arguments: pid, app path, version, zip URL, log path. The download must carry the
-    /// expected version and a valid signature before it replaces the app, and the old
-    /// bundle is restored if the copy fails.
     private static let script = #"""
     pid="$1"; app="$2"; version="$3"; url="$4"; log="$5"
     say() { printf '%s  %s  %s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$1" "$2" >> "$log"; }

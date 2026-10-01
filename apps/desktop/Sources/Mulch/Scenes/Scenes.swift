@@ -3,7 +3,6 @@ import MulchCore
 import MulchUI
 import SwiftUI
 
-/// Connects the menu bar screen to the store.
 struct PopoverScene: View {
     let store: AppStore
     let updater: Updater
@@ -19,19 +18,25 @@ struct PopoverScene: View {
                 rescan: { Task { await store.rescan() } },
                 update: { updater.install() },
                 openApp: {
+                    Log.info("action: open main window")
                     openWindow(id: MainScene.id)
                     NSApp.activate()
                 },
-                quit: { NSApp.terminate(nil) }
+                quit: {
+                    Log.info("action: quit")
+                    NSApp.terminate(nil)
+                }
             )
         )
         .preferredColorScheme(.dark)
-        .onAppear { store.refreshIfStale() }
+        .onAppear {
+            Log.info("ui: menu bar window opened")
+            store.refreshIfStale()
+        }
+        .onDisappear { Log.info("ui: menu bar window closed") }
     }
 }
 
-/// Connects the main window to the store: first run until it is finished, then the
-/// three-pane inspector. Same constant frame for both; Dock icon only while open.
 struct MainScene: View {
     static let id = "main"
 
@@ -47,10 +52,14 @@ struct MainScene: View {
         .preferredColorScheme(.dark)
         .tint(Theme.auto)
         .onAppear {
+            Log.info("ui: main window opened (\(store.config.onboarded ? "inspector" : "first run"))")
             NSApp.setActivationPolicy(.regular)
             store.refreshIfStale()
         }
-        .onDisappear { NSApp.setActivationPolicy(.accessory) }
+        .onDisappear {
+            Log.info("ui: main window closed")
+            NSApp.setActivationPolicy(.accessory)
+        }
     }
 
     private var sections: [RuleListSection] { Presenter.ruleList(store.report) }
@@ -87,7 +96,6 @@ struct MainScene: View {
         }
     }
 
-    /// Selects the first rule when nothing valid is selected, e.g. after a rescan.
     private func keepSelectionValid() {
         let ids = sections.flatMap(\.items).map(\.id)
         if selectedRule.map(ids.contains) != true { selectedRule = ids.first }
@@ -107,7 +115,6 @@ struct MainScene: View {
     }
 }
 
-/// Connects the Settings window to the store.
 struct SettingsScene: View {
     let store: AppStore
     let updater: Updater
@@ -131,10 +138,12 @@ struct SettingsScene: View {
                 openConfig: { store.openConfigFile() },
                 checkForUpdates: { Task { await updater.check() } },
                 installUpdate: { updater.install() },
-                openLog: { NSWorkspace.shared.open(Log.url) }
+                openLog: { NSWorkspace.shared.activateFileViewerSelecting([Log.url]) }
             )
         )
         .preferredColorScheme(.dark)
         .tint(Theme.auto)
+        .onAppear { Log.info("ui: settings opened") }
+        .onDisappear { Log.info("ui: settings closed") }
     }
 }

@@ -1,15 +1,10 @@
 import Darwin
 import Foundation
 
-/// Finds and sizes what each rule would clean. Read-only.
-///
-/// Run it from a `.background` priority task: Darwin then throttles its disk I/O
-/// so a scan never competes with the user's work.
 public struct Scanner: Sendable {
     public let paths: Paths
     public let probe: any SystemProbe
     public let runner: CommandRunner
-    /// How deep to look for project artifacts under a code root.
     public var maxDepth = 8
 
     public init(paths: Paths, probe: any SystemProbe, runner: CommandRunner) {
@@ -18,7 +13,6 @@ public struct Scanner: Sendable {
         self.runner = runner
     }
 
-    /// `progress` receives each rule's report as soon as it is ready.
     public func scan(
         _ rules: [EffectiveRule], config: Config, now: Date = .now,
         progress: (@Sendable (RuleReport) async -> Void)? = nil
@@ -83,10 +77,6 @@ public struct Scanner: Sendable {
         return .eligible
     }
 
-    // MARK: Targets
-
-    /// Child folders of each folder matching `pattern`, minus the newest (per product
-    /// for `.versionPerProduct`). Files are ignored; they are never versions.
     func olderSiblings(_ pattern: String, _ newest: Newest) -> [(url: URL, root: URL)] {
         paths.resolve(pattern).flatMap { folder -> [(url: URL, root: URL)] in
             let children = ((try? FileManager.default.contentsOfDirectory(
@@ -110,13 +100,10 @@ public struct Scanner: Sendable {
         }
     }
 
-    /// `chromium-1208` becomes `chromium`, `WebStorm2025.1` becomes `WebStorm`.
     static func product(_ name: String) -> String {
         String(name.reversed().drop { "0123456789.-_ ".contains($0) }.reversed())
     }
 
-    /// One walk over every code root that serves all project-artifact rules. Matched
-    /// folders, `.git`, `node_modules` and never paths are not walked into.
     func findArtifacts(
         for rules: [EffectiveRule], roots: [String], protection: Protection
     ) -> [String: [(url: URL, root: URL)]] {
