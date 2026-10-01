@@ -1,0 +1,30 @@
+# Checks every pull request. Releases run from release.yml after merge.
+name: CI
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  desktop:
+    name: Desktop tests
+    runs-on: xcode-27
+    defaults:
+      run:
+        working-directory: apps/desktop
+    steps:
+      - uses: actions/checkout@v7
+      - run: swift test
+
+  website:
+    name: Website build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - run: npm install --global pnpm@12.6.0
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm web:build

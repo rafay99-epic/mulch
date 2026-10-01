@@ -1,7 +1,8 @@
 #!/bin/zsh
 # Builds build/Mulch.app (arm64, release) from the SwiftPM package.
-# Signs with CODESIGN_IDENTITY (default "Mulch Signing", made by make-signing-cert.sh)
-# so launch-at-login and privacy grants survive rebuilds; falls back to ad-hoc.
+# Signs with a stable identity so launch-at-login and privacy grants survive rebuilds:
+# CODESIGN_IDENTITY if set, else your Apple Development cert, else "Mulch Signing"
+# (made by make-signing-cert.sh), else ad-hoc.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -29,7 +30,8 @@ vtool -set-build-version macos "$MIN_OS" "$SDK_VERSION" -replace \
   -output "$APP/Contents/MacOS/$APP_NAME" "$APP/Contents/MacOS/$APP_NAME"
 
 cp Resources/Info.plist "$APP/Contents/Info.plist"
-VERSION="0.$(git rev-list --count HEAD 2>/dev/null || echo 0)"
+# The version is the commit count on this branch, e.g. 42; CI passes MULCH_VERSION.
+VERSION="${MULCH_VERSION:-$(git rev-list --count HEAD 2>/dev/null || echo 0)}"
 /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $VERSION" "$APP/Contents/Info.plist"
 /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $VERSION" "$APP/Contents/Info.plist"
 
@@ -47,11 +49,15 @@ if [[ ! -f "$ICON" ]]; then
 fi
 cp "$ICON" "$APP/Contents/Resources/AppIcon.icns"
 
-IDENTITY="${CODESIGN_IDENTITY:-Mulch Signing}"
-if ! security find-identity -p codesigning 2>/dev/null | grep -qF "\"$IDENTITY\""; then
+# Identity order: $CODESIGN_IDENTITY, an Apple Development cert, "Mulch Signing", ad-hoc.
+IDENTITIES="$(security find-identity -p codesigning 2>/dev/null || true)"
+IDENTITY="${CODESIGN_IDENTITY:-$(grep -o '"Apple Development: [^"]*"' <<< "$IDENTITIES" | head -1 | tr -d '"')}"
+IDENTITY="${IDENTITY:-Mulch Signing}"
+if ! grep -qF "\"$IDENTITY\"" <<< "$IDENTITIES"; then
   echo "Signing identity \"$IDENTITY\" not found; signing ad-hoc. Run Scripts/make-signing-cert.sh once to fix." >&2
   IDENTITY="-"
 fi
 codesign --force --sign "$IDENTITY" "$APP"
+echo "Signed with: $IDENTITY"
 
 echo "Built $PWD/$APP ($VERSION, macOS $MIN_OS+, SDK $SDK_VERSION)"

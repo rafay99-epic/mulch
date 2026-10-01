@@ -26,12 +26,26 @@ Rules are data in `Sources/MulchCore/Catalog/BuiltInRules.swift`. Each one is **
 
 ## Install on a Mac
 
+Latest release (needs `gh` signed in with access to this repo):
+
 ```sh
 gh repo clone rafay99-epic/mulch ~/Code/mulch
-cd ~/Code/mulch/apps/desktop
-./Scripts/make-signing-cert.sh   # once per Mac, keeps permissions across rebuilds
-./Scripts/install.sh             # again after every git pull
+~/Code/mulch/apps/desktop/Scripts/install-release.sh
 ```
+
+Or build from source: `apps/desktop/Scripts/install.sh`.
+
+## Releases
+
+Every push to `main` that touches `apps/desktop` runs `.github/workflows/release.yml`: tests, build, sign, zip, and a GitHub Release tagged `v<commit count>`. The version number is the commit count, so build 42 is `v42`. Pull requests run `ci.yml` (Swift tests and the website build).
+
+Releases are signed with the self-signed **Mulch Signing** identity from Actions secrets. To create or rotate it:
+
+```sh
+apps/desktop/Scripts/make-signing-cert.sh --github
+```
+
+Local builds sign with `CODESIGN_IDENTITY`, else your Apple Development certificate, else Mulch Signing, else ad-hoc.
 
 ## Develop
 

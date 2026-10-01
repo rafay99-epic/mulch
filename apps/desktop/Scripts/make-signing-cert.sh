@@ -1,10 +1,23 @@
 #!/bin/bash
-# Creates a self-signed code-signing identity in the login keychain. Run once per Mac.
-# A stable identity keeps launch-at-login and privacy grants across rebuilds.
+# Creates the self-signed "Mulch Signing" code-signing identity used by release builds.
+#
+#   Scripts/make-signing-cert.sh            import it into this Mac's login keychain
+#   Scripts/make-signing-cert.sh --github   also store it as the repo's Actions secrets
+#                                           (MACOS_SIGN_CERT_P12, MACOS_SIGN_CERT_PASSWORD)
+#
+# A stable identity keeps launch-at-login and privacy grants across updates. GitHub
+# secrets are write-only, so the login keychain holds the only readable copy.
 set -euo pipefail
 
-NAME="${1:-Mulch Signing}"
+NAME="Mulch Signing"
+UPLOAD=false
+[[ "${1:-}" == "--github" ]] && UPLOAD=true
+
 if security find-identity -p codesigning 2>/dev/null | grep -qF "\"$NAME\""; then
+  if $UPLOAD; then
+    echo "\"$NAME\" already exists in the keychain. Delete it in Keychain Access to make a fresh one for GitHub." >&2
+    exit 1
+  fi
   echo "\"$NAME\" already exists."
   exit 0
 fi
@@ -40,10 +53,11 @@ openssl pkcs12 -export \
   -name "$NAME" 2>/dev/null
 
 security import "$WORK/identity.p12" -k ~/Library/Keychains/login.keychain-db \
-  -P "$PASSWORD" -T /usr/bin/codesign
-security set-key-partition-list -S apple-tool:,apple: -s \
-  -k "$(security find-generic-password -ws 'login' 2>/dev/null || true)" \
-  ~/Library/Keychains/login.keychain-db >/dev/null 2>&1 || \
-  echo "note: macOS will ask to allow codesign on first use."
+  -P "$PASSWORD" -T /usr/bin/codesign >/dev/null
+echo "Imported \"$NAME\" into the login keychain."
 
-echo "Created \"$NAME\". Scripts/build.sh uses it automatically."
+if $UPLOAD; then
+  base64 -i "$WORK/identity.p12" | gh secret set MACOS_SIGN_CERT_P12
+  printf '%s' "$PASSWORD" | gh secret set MACOS_SIGN_CERT_PASSWORD
+  echo "Stored MACOS_SIGN_CERT_P12 and MACOS_SIGN_CERT_PASSWORD as GitHub Actions secrets."
+fi

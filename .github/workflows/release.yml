@@ -1,0 +1,71 @@
+# Every push to main that touches the desktop app ships a release:
+# test, build, sign, zip, and publish GitHub Release v<commit count>.
+name: Release
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "apps/desktop/**"
+      - ".github/workflows/release.yml"
+      - ".github/scripts/**"
+  workflow_dispatch:
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Build and publish
+    runs-on: xcode-27
+    defaults:
+      run:
+        working-directory: apps/desktop
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0 # the commit count is the version
+
+      - name: Version
+        run: echo "VERSION=$(git rev-list --count HEAD)" >> "$GITHUB_ENV"
+
+      - name: Skip if already released
+        id: existing
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view "v$VERSION" >/dev/null 2>&1; then
+            echo "v$VERSION already exists."
+            echo "released=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Test
+        if: steps.existing.outputs.released != 'true'
+        run: swift test
+
+      - name: Signing identity
+        if: steps.existing.outputs.released != 'true'
+        run: ../../.github/scripts/setup-signing.sh
+        env:
+          MACOS_SIGN_CERT_P12: ${{ secrets.MACOS_SIGN_CERT_P12 }}
+          MACOS_SIGN_CERT_PASSWORD: ${{ secrets.MACOS_SIGN_CERT_PASSWORD }}
+
+      - name: Build
+        if: steps.existing.outputs.released != 'true'
+        run: MULCH_VERSION="$VERSION" ./Scripts/build.sh
+
+      - name: Package
+        if: steps.existing.outputs.released != 'true'
+        run: ditto -c -k --keepParent build/Mulch.app "build/Mulch-$VERSION.zip"
+
+      - name: Publish
+        if: steps.existing.outputs.released != 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "v$VERSION" "build/Mulch-$VERSION.zip" \
+            --title "Mulch $VERSION" --target "$GITHUB_SHA" --generate-notes --latest
