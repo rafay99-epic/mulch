@@ -9,5 +9,6 @@ apps/desktop/Resources/AppIcon.icns
 # Node
 node_modules/
 dist/
+dist-ssr/
 *.tsbuildinfo
 .vite/

@@ -1,0 +1,54 @@
+import { m } from "motion/react"
+import { GithubMark } from "@/components/brand/Brand"
+import { InspectorWindow } from "@/components/product/InspectorWindow"
+import { inspector } from "@/content/product"
+import { site } from "@/content/site"
+import { useHeroMotion } from "@/hooks/scenes"
+import { useScene } from "@/hooks/useScene"
+
+const TAG_POSITIONS = ["left-[2%]", "left-[36%]", "left-[70%]"] as const
+const TAG_DEPTHS = [50, 100, 150] as const
+
+/** Name, purpose, and the app window that comes apart in 3D, then exits. */
+export function Hero() {
+  const { ref, progress } = useScene<HTMLElement>()
+  const motion = useHeroMotion(progress)
+
+  return (
+    <section ref={ref} id="top" className="relative h-[290vh]">
+      <div className="sticky top-0 h-svh overflow-hidden">
+        <m.div style={motion.copy} className="mx-auto max-w-[980px] px-6 pt-[calc(3.5rem+8vh)] text-center">
+          <h1 className="font-serif text-[clamp(56px,8vw,128px)] leading-[0.95] tracking-[-0.02em]">
+            {site.hero.title[0]}
+            <br />
+            {site.hero.title[1]}
+          </h1>
+          <p className="mx-auto mt-6 max-w-[720px] text-[clamp(18px,1.6vw,22px)] text-muted-foreground">{site.summary}</p>
+          <div className="mt-9 flex items-center justify-center gap-7">
+            <a href="#install" className="rounded-full bg-white px-7 py-3.5 text-[17px] font-semibold text-black transition-colors hover:bg-white/85">
+              Install Mulch
+            </a>
+            <a href={site.repo} className="flex items-center gap-2 font-medium transition-colors hover:text-leaf">
+              <GithubMark /> View on GitHub
+            </a>
+          </div>
+        </m.div>
+
+        <div className="absolute inset-x-0 bottom-[4vh] flex justify-center perspective-[1600px]">
+          <m.div style={motion.rig} className="relative transform-3d">
+            <InspectorWindow data={inspector} depth={motion.depth} />
+            {site.hero.tags.map((tag, i) => (
+              <m.span
+                key={tag}
+                style={{ opacity: motion.tags.opacity, z: TAG_DEPTHS[i] }}
+                className={`absolute -bottom-8 whitespace-nowrap font-mono text-sm font-semibold text-leaf ${TAG_POSITIONS[i]}`}
+              >
+                {tag}
+              </m.span>
+            ))}
+          </m.div>
+        </div>
+      </div>
+    </section>
+  )
+}

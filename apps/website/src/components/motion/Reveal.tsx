@@ -1,23 +1,19 @@
-import { m, useReducedMotion } from "motion/react"
+import { m } from "motion/react"
 import type { ReactNode } from "react"
+import { useReveal } from "@/hooks/useReveal"
 
-type RevealProps = {
+interface RevealProps {
   children: ReactNode
+  /** Stagger offset, 0..0.2. */
   delay?: number
   className?: string
 }
 
-/** Fades content up once when it scrolls into view. Respects reduced motion. Needs `MotionProvider` above it. */
+/** Fades and rises in on enter, drifts out on exit. */
 export function Reveal({ children, delay = 0, className }: RevealProps) {
-  const reduce = useReducedMotion()
+  const { ref, style } = useReveal(delay)
   return (
-    <m.div
-      className={className}
-      initial={reduce ? false : { opacity: 0, y: 12 }}
-      whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true, margin: "-10% 0px" }}
-      transition={{ duration: 0.4, delay, ease: "easeOut" }}
-    >
+    <m.div ref={ref} style={style} className={className}>
       {children}
     </m.div>
   )
