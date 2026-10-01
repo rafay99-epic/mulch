@@ -2,8 +2,6 @@ import Foundation
 import MulchCore
 import MulchUI
 
-/// Maps engine values to the plain view models MulchUI renders. Pure functions,
-/// the only place that knows both sides.
 enum Presenter {
     static func mode(_ mode: Mode) -> CleanMode {
         switch mode {
@@ -21,9 +19,7 @@ enum Presenter {
         }
     }
 
-    // MARK: Popover
-
-    static func popover(_ store: AppStore) -> PopoverModel {
+    static func popover(_ store: AppStore, updater: Updater) -> PopoverModel {
         var model = PopoverModel()
         model.reclaimable = store.report?.autoBytes ?? 0
         model.bars = bars(store.report)
@@ -35,10 +31,10 @@ enum Presenter {
         model.isCleaning = store.isCleaning
         model.message = store.message
         model.needsFullDiskAccess = store.needsFullDiskAccess
+        model.update = updater.available.map { String($0.version) }
         return model
     }
 
-    /// The five rules with the most to clean now.
     static func bars(_ report: ScanReport?) -> [BarItem] {
         (report?.rules ?? [])
             .filter { $0.rule.mode != .off && $0.eligibleBytes > 0 }
@@ -63,9 +59,6 @@ enum Presenter {
             .reduce(0) { $0 + $1.freedBytes }
     }
 
-    // MARK: Main window
-
-    /// Rules that found something: weekly ones first, then those that ask.
     static func ruleList(_ report: ScanReport?) -> [RuleListSection] {
         let visible = (report?.rules ?? []).filter { !$0.findings.isEmpty }.sorted { $0.totalBytes > $1.totalBytes }
         return [("Weekly", Mode.auto), ("Asks first", Mode.ask)].compactMap { title, mode in
@@ -105,14 +98,13 @@ enum Presenter {
             lastUsed: finding.newest,
             rule: rule.rule.rule.title,
             why: why(rule.rule),
-            status: isSkipped ? "skipped until the next scan" : status(finding.status),
+            status: isSkipped ? "skipped until you rescan" : status(finding.status),
             ready: finding.isEligible && !isSkipped,
             mode: mode(rule.rule.mode),
             canReveal: finding.url != nil
         )
     }
 
-    /// Plain-language reason a rule's items are safe to remove.
     static func why(_ rule: EffectiveRule) -> String {
         var parts: [String] = []
         switch rule.rule.target {
@@ -140,14 +132,11 @@ enum Presenter {
         }
     }
 
-    /// The path below the rule's folder, e.g. `echoes/apps/game/build` under `~/Code`.
     static func relativeTitle(_ finding: Finding) -> String {
         guard let path = finding.url?.path, let root = finding.root?.path else { return finding.title }
         let base = root.hasSuffix("/") ? root : root + "/"
         return path.hasPrefix(base) ? String(path.dropFirst(base.count)) : finding.title
     }
-
-    // MARK: First run
 
     static func firstRunRows(_ store: AppStore) -> [FirstRunRow] {
         let effective = store.config.effective(store.engine.rules)
@@ -177,8 +166,6 @@ enum Presenter {
         }
     }
 
-    // MARK: Settings
-
     static func ruleSections(_ store: AppStore) -> [RuleSection] {
         let effective = store.config.effective(store.engine.rules)
         return RuleGroup.allCases.compactMap { group in
@@ -190,6 +177,15 @@ enum Presenter {
             }
             return rows.isEmpty ? nil : RuleSection(title: group.title, rows: rows)
         }
+    }
+
+    static func about(_ updater: Updater, isCleaning: Bool) -> AboutModel {
+        AboutModel(
+            version: "\(Channel.current.displayName) \(Channel.version)",
+            updateStatus: Updater.isEnabled ? updater.statusText : nil,
+            canInstall: updater.available != nil,
+            isBusy: isCleaning || [.checking, .installing].contains(updater.status)
+        )
     }
 
     static func history(_ runs: [Run]) -> [HistoryPoint] {

@@ -1,6 +1,5 @@
 import SwiftUI
 
-/// First run on one screen. Rows fill in as the scan finishes each group.
 public struct FirstRunScreen: View {
     let rows: [FirstRunRow]
     let reclaimable: Int64

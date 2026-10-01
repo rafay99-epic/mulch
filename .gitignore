@@ -4,7 +4,7 @@
 apps/desktop/.build/
 apps/desktop/build/
 apps/desktop/.swiftpm/
-apps/desktop/Resources/AppIcon.icns
+apps/desktop/Resources/AppIcon*.icns
 
 # Node
 node_modules/

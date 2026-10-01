@@ -1,6 +1,5 @@
 import SwiftUI
 
-/// Colors and formatting shared by every screen.
 public enum Theme {
     public static let background = Color.black
     public static let auto = Color.green
@@ -16,14 +15,11 @@ public enum Theme {
         }
     }
 
-    /// File-style sizes; zero reads "0 KB" rather than Foundation's "Zero kB".
     public static func bytes(_ value: Int64) -> String {
         value == 0 ? "0 KB" : value.formatted(.byteCount(style: .file))
     }
 }
 
-/// Static proportional bar. Scales instead of measuring its container, so it can
-/// never feed back into layout.
 public struct SizeBar: View {
     let fraction: Double
     let tint: Color
@@ -46,7 +42,6 @@ public struct SizeBar: View {
     }
 }
 
-/// Auto, Ask or Off, with a distinct shape so it reads without color.
 public struct ModeBadge: View {
     let mode: CleanMode
 
@@ -84,7 +79,6 @@ public struct ModePicker: View {
     }
 }
 
-/// The headline number.
 public struct BigNumber: View {
     let bytes: Int64
     let caption: String
@@ -126,7 +120,6 @@ public struct StatRow: View {
     }
 }
 
-/// A rule's size as a labelled bar, scaled against the largest rule shown.
 public struct BarRow: View {
     let item: BarItem
     let maxBytes: Int64
@@ -154,7 +147,6 @@ public struct BarRow: View {
     }
 }
 
-/// An item awaiting approval, with Clean and Skip.
 public struct InboxRow: View {
     let item: InboxItem
     let onClean: () -> Void

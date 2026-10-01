@@ -1,5 +1,6 @@
-# Every push to main that touches the desktop app ships a release:
-# test, build, sign, zip, and publish GitHub Release v<commit count>.
+# Every push to main that touches the desktop app ships a release: test, build,
+# sign, zip, and publish GitHub Release v<commit count>. Installed apps update
+# themselves from the latest release, and the Homebrew cask follows it too.
 name: Release
 
 on:
@@ -60,12 +61,14 @@ jobs:
 
       - name: Package
         if: steps.existing.outputs.released != 'true'
-        run: ditto -c -k --keepParent build/Mulch.app "build/Mulch-$VERSION.zip"
+        run: ditto -c -k --keepParent build/Mulch.app build/Mulch.zip
 
+      # The app reads its version from the release title and downloads Mulch.zip, so
+      # keep both names. The cask installs releases/latest/download/Mulch.zip.
       - name: Publish
         if: steps.existing.outputs.released != 'true'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "v$VERSION" "build/Mulch-$VERSION.zip" \
+          gh release create "v$VERSION" build/Mulch.zip \
             --title "Mulch $VERSION" --target "$GITHUB_SHA" --generate-notes --latest

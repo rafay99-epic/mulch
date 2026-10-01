@@ -1,6 +1,5 @@
 import Foundation
 
-/// Bundle ids the catalog refers to.
 enum Apps {
     static let chrome = "com.google.Chrome"
     static let brave = "com.brave.Browser"
@@ -10,8 +9,6 @@ enum Apps {
     static let simulator = "com.apple.iphonesimulator"
 }
 
-/// The default rule catalog. Order matters: when two rules match the same path,
-/// the earlier one claims it, so specific rules come before broad ones.
 public enum BuiltInRules {
     public static let all: [Rule] = code + browsers + xcode + android + editors + packages + docker + system
 
@@ -163,7 +160,7 @@ public enum BuiltInRules {
         Rule(
             id: "system.appCaches", title: "Caches of apps unused for 2 weeks", group: .system,
             target: .paths(["~/Library/Caches/*.*"]), minAgeDays: 14,
-            blockers: [.itemBundleID], excluding: ["com.apple.*", "com.rafay99.mulch"]
+            blockers: [.itemBundleID], excluding: ["com.apple.*", "com.rafay99.mulch*"]
         ),
     ]
 }

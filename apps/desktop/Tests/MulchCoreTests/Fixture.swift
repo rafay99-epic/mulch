@@ -1,7 +1,6 @@
 import Foundation
 @testable import MulchCore
 
-/// A throwaway home folder for one test.
 struct Fixture {
     let home: URL
     var paths: Paths { Paths(home: home, darwinX: home.appending(path: "X")) }
@@ -12,7 +11,6 @@ struct Fixture {
         try FileManager.default.createDirectory(at: home, withIntermediateDirectories: true)
     }
 
-    /// Writes a file (and its folders) at a home-relative path.
     @discardableResult
     func file(_ path: String, bytes: Int = 4096) throws -> URL {
         let url = home.appending(path: path)
@@ -25,7 +23,6 @@ struct Fixture {
 
     func exists(_ path: String) -> Bool { FileManager.default.fileExists(atPath: url(path).path) }
 
-    /// Backdates an item and everything inside it.
     func age(_ path: String, days: Double) throws {
         let date = Date(timeIntervalSinceNow: -days * 86_400)
         let root = url(path)

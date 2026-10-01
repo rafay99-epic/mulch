@@ -1,11 +1,6 @@
 import Darwin
 import Foundation
 
-/// Expands rule patterns into real paths.
-///
-/// `~` is the home folder and `$X` is the per-user Darwin cache folder
-/// (`/var/folders/../X`) where browsers leave `code_sign_clone` copies.
-/// `*` and `?` glob a single path component.
 public struct Paths: Sendable {
     public let home: URL
     public let darwinX: URL
@@ -15,7 +10,6 @@ public struct Paths: Sendable {
         self.darwinX = darwinX
     }
 
-    /// `NSTemporaryDirectory()` is `/var/folders/<a>/<b>/T/`; its sibling `X` holds the clones.
     public static var defaultDarwinX: URL {
         URL(filePath: NSTemporaryDirectory()).deletingLastPathComponent().appending(path: "X")
     }
@@ -27,8 +21,6 @@ public struct Paths: Sendable {
         return pattern
     }
 
-    /// Existing items matching `pattern`, each paired with the folder it must stay inside:
-    /// the part of the pattern before the first glob, or the item's parent when there is no glob.
     public func resolve(_ pattern: String) -> [(url: URL, root: URL)] {
         let parts = expand(pattern).split(separator: "/", omittingEmptySubsequences: true).map(String.init)
         guard let firstGlob = parts.firstIndex(where: Self.isGlob) else {
@@ -50,7 +42,6 @@ public struct Paths: Sendable {
         return current.map { ($0, root) }
     }
 
-    /// `/Users/me/Code/app` becomes `~/Code/app`, also when home sits behind a symlink.
     public func abbreviate(_ url: URL) -> String {
         let path = url.path
         for base in [home.path, Self.canonical(home.path)].compactMap({ $0 }) where path.hasPrefix(base + "/") {
@@ -59,14 +50,12 @@ public struct Paths: Sendable {
         return path
     }
 
-    /// The real path with symlinks resolved, or `nil` if it does not exist.
     public static func canonical(_ path: String) -> String? {
         guard let resolved = realpath(path, nil) else { return nil }
         defer { free(resolved) }
         return String(cString: resolved)
     }
 
-    /// True when `url`, after resolving symlinks, is strictly inside `root`.
     public static func isContained(_ url: URL, in root: URL) -> Bool {
         guard let item = canonical(url.path), let base = canonical(root.path) else { return false }
         return item.hasPrefix(base + "/")
@@ -77,8 +66,6 @@ public struct Paths: Sendable {
     }
 }
 
-/// Paths Mulch must never delete: the user's never list plus a floor that protects
-/// the home folder and everything above it.
 public struct Protection: Sendable {
     private let never: [String]
     private let home: String
@@ -91,13 +78,10 @@ public struct Protection: Sendable {
         home = Paths.canonical(paths.home.path) ?? paths.home.path
     }
 
-    /// Cheap string check used while walking: is `path` inside a never path?
     public func isInsideNever(_ path: String) -> Bool {
         never.contains { path == $0 || path.hasPrefix($0 + "/") }
     }
 
-    /// Full check before deleting: refuses never paths, anything containing one,
-    /// and the home folder or its ancestors.
     public func forbidsDeleting(_ url: URL) -> Bool {
         let raw = (url.path as NSString).standardizingPath
         let real = Paths.canonical(raw) ?? raw

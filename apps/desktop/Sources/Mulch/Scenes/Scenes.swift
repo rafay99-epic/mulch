@@ -3,33 +3,40 @@ import MulchCore
 import MulchUI
 import SwiftUI
 
-/// Connects the menu bar screen to the store.
 struct PopoverScene: View {
     let store: AppStore
+    let updater: Updater
     @Environment(\.openWindow) private var openWindow
 
     var body: some View {
         PopoverScreen(
-            model: Presenter.popover(store),
+            model: Presenter.popover(store, updater: updater),
             actions: PopoverActions(
                 clean: { Task { await store.cleanAuto() } },
                 cleanItem: { id in Task { await store.clean(itemIDs: [id]) } },
                 skipItem: { store.skip($0) },
-                rescan: { Task { await store.scan() } },
+                rescan: { Task { await store.rescan() } },
+                update: { updater.install() },
                 openApp: {
+                    Log.info("action: open main window")
                     openWindow(id: MainScene.id)
                     NSApp.activate()
                 },
-                quit: { NSApp.terminate(nil) }
+                quit: {
+                    Log.info("action: quit")
+                    NSApp.terminate(nil)
+                }
             )
         )
         .preferredColorScheme(.dark)
-        .onAppear { store.refreshIfStale() }
+        .onAppear {
+            Log.info("ui: menu bar window opened")
+            store.refreshIfStale()
+        }
+        .onDisappear { Log.info("ui: menu bar window closed") }
     }
 }
 
-/// Connects the main window to the store: first run until it is finished, then the
-/// three-pane inspector. Same constant frame for both; Dock icon only while open.
 struct MainScene: View {
     static let id = "main"
 
@@ -45,10 +52,14 @@ struct MainScene: View {
         .preferredColorScheme(.dark)
         .tint(Theme.auto)
         .onAppear {
+            Log.info("ui: main window opened (\(store.config.onboarded ? "inspector" : "first run"))")
             NSApp.setActivationPolicy(.regular)
             store.refreshIfStale()
         }
-        .onDisappear { NSApp.setActivationPolicy(.accessory) }
+        .onDisappear {
+            Log.info("ui: main window closed")
+            NSApp.setActivationPolicy(.accessory)
+        }
     }
 
     private var sections: [RuleListSection] { Presenter.ruleList(store.report) }
@@ -76,7 +87,7 @@ struct MainScene: View {
                 cleanItem: { id in Task { await store.clean(itemIDs: [id]) } },
                 skipItem: { store.skip($0) },
                 reveal: { store.reveal($0) },
-                rescan: { Task { await store.scan() } }
+                rescan: { Task { await store.rescan() } }
             )
         )
         .onChange(of: sections, initial: true) { keepSelectionValid() }
@@ -85,7 +96,6 @@ struct MainScene: View {
         }
     }
 
-    /// Selects the first rule when nothing valid is selected, e.g. after a rescan.
     private func keepSelectionValid() {
         let ids = sections.flatMap(\.items).map(\.id)
         if selectedRule.map(ids.contains) != true { selectedRule = ids.first }
@@ -105,9 +115,9 @@ struct MainScene: View {
     }
 }
 
-/// Connects the Settings window to the store.
 struct SettingsScene: View {
     let store: AppStore
+    let updater: Updater
 
     var body: some View {
         SettingsScreen(
@@ -116,6 +126,7 @@ struct SettingsScene: View {
             never: store.config.never,
             history: Presenter.history(store.history),
             nextSweep: store.nextSweep,
+            about: Presenter.about(updater, isCleaning: store.isCleaning),
             launchAtLogin: Binding(get: { store.launchAtLogin }, set: { store.setLaunchAtLogin($0) }),
             actions: SettingsActions(
                 setMode: { store.setMode(Presenter.mode($1), ruleID: $0) },
@@ -124,10 +135,15 @@ struct SettingsScene: View {
                 removeRoot: { store.setRoot($0, enabled: false) },
                 addNever: { store.addNever($0) },
                 removeNever: { store.removeNever($0) },
-                openConfig: { store.openConfigFile() }
+                openConfig: { store.openConfigFile() },
+                checkForUpdates: { Task { await updater.check() } },
+                installUpdate: { updater.install() },
+                openLog: { NSWorkspace.shared.activateFileViewerSelecting([Log.url]) }
             )
         )
         .preferredColorScheme(.dark)
         .tint(Theme.auto)
+        .onAppear { Log.info("ui: settings opened") }
+        .onDisappear { Log.info("ui: settings closed") }
     }
 }

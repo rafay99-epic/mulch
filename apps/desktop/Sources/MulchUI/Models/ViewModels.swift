@@ -1,8 +1,5 @@
 import Foundation
 
-// Plain values the screens render. MulchUI does not import MulchCore; the app
-// target maps engine results into these, so views stay dumb and previewable.
-
 public enum CleanMode: String, CaseIterable, Identifiable, Sendable {
     case auto, ask, off
 
@@ -10,7 +7,6 @@ public enum CleanMode: String, CaseIterable, Identifiable, Sendable {
     public var title: String { rawValue.capitalized }
 }
 
-/// One rule as a proportional bar.
 public struct BarItem: Identifiable, Hashable, Sendable {
     public let id: String
     public let title: String
@@ -25,7 +21,6 @@ public struct BarItem: Identifiable, Hashable, Sendable {
     }
 }
 
-/// Something waiting for approval.
 public struct InboxItem: Identifiable, Hashable, Sendable {
     public let id: String
     public let title: String
@@ -45,7 +40,6 @@ public struct RuleRow: Identifiable, Hashable, Sendable {
     public let title: String
     public let mode: CleanMode
     public let minAgeDays: Int?
-    /// Current size, if scanned.
     public let bytes: Int64?
 
     public init(id: String, title: String, mode: CleanMode, minAgeDays: Int?, bytes: Int64?) {
@@ -89,9 +83,23 @@ public struct PopoverModel: Sendable {
     public var diskFree: Int64?
     public var isScanning = false
     public var isCleaning = false
-    /// Result of the last action, e.g. "Freed 12.3 GB".
     public var message: String?
     public var needsFullDiskAccess = false
+    public var update: String?
 
     public init() {}
+}
+
+public struct AboutModel: Sendable {
+    public var version: String
+    public var updateStatus: String?
+    public var canInstall: Bool
+    public var isBusy: Bool
+
+    public init(version: String, updateStatus: String?, canInstall: Bool, isBusy: Bool) {
+        self.version = version
+        self.updateStatus = updateStatus
+        self.canInstall = canInstall
+        self.isBusy = isBusy
+    }
 }

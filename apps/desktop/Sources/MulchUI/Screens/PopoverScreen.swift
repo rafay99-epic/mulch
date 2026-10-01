@@ -5,6 +5,7 @@ public struct PopoverActions {
     public var cleanItem: (String) -> Void
     public var skipItem: (String) -> Void
     public var rescan: () -> Void
+    public var update: () -> Void
     public var openApp: () -> Void
     public var quit: () -> Void
 
@@ -13,6 +14,7 @@ public struct PopoverActions {
         cleanItem: @escaping (String) -> Void,
         skipItem: @escaping (String) -> Void,
         rescan: @escaping () -> Void,
+        update: @escaping () -> Void,
         openApp: @escaping () -> Void,
         quit: @escaping () -> Void
     ) {
@@ -20,13 +22,12 @@ public struct PopoverActions {
         self.cleanItem = cleanItem
         self.skipItem = skipItem
         self.rescan = rescan
+        self.update = update
         self.openApp = openApp
         self.quit = quit
     }
 }
 
-/// The menu bar window: one number, the biggest rules, the inbox, and the schedule.
-/// Fixed width and no animated height changes.
 public struct PopoverScreen: View {
     let model: PopoverModel
     let actions: PopoverActions
@@ -70,6 +71,7 @@ public struct PopoverScreen: View {
                         InboxRow(item, onClean: { actions.cleanItem(item.id) }, onSkip: { actions.skipItem(item.id) })
                     }
                 }
+                .disabled(model.isCleaning)
             }
 
             Divider()
@@ -83,6 +85,11 @@ public struct PopoverScreen: View {
                 Button("Open Mulch", action: actions.openApp)
                 Button("Rescan", action: actions.rescan).disabled(model.isScanning)
                 Spacer()
+                if let update = model.update {
+                    Button("Update to \(update)", action: actions.update)
+                        .foregroundStyle(Theme.auto)
+                        .disabled(model.isCleaning)
+                }
                 Button("Quit", action: actions.quit)
             }
             .buttonStyle(.borderless)

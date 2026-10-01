@@ -1,7 +1,5 @@
 import Foundation
 
-/// A Codable value stored in one JSON file. A missing or unreadable file yields
-/// `fallback`; an unreadable one is moved aside to `<name>.broken` so it is not lost.
 public struct JSONFile<Value: Codable & Sendable>: Sendable {
     public let url: URL
     public let fallback: Value
@@ -11,7 +9,7 @@ public struct JSONFile<Value: Codable & Sendable>: Sendable {
         self.fallback = fallback
     }
 
-    public func load() -> Value {
+    public func load(onBroken: (any Error, URL) -> Void = { _, _ in }) -> Value {
         guard let data = try? Data(contentsOf: url) else { return fallback }
         do {
             return try Self.decoder.decode(Value.self, from: data)
@@ -19,6 +17,7 @@ public struct JSONFile<Value: Codable & Sendable>: Sendable {
             let aside = url.appendingPathExtension("broken")
             try? FileManager.default.removeItem(at: aside)
             try? FileManager.default.moveItem(at: url, to: aside)
+            onBroken(error, aside)
             return fallback
         }
     }
@@ -43,17 +42,16 @@ public struct JSONFile<Value: Codable & Sendable>: Sendable {
 }
 
 public extension JSONFile where Value == Config {
-    static func config(home: URL = FileManager.default.homeDirectoryForCurrentUser) -> Self {
-        JSONFile(url: home.appending(path: ".config/mulch/config.json"), fallback: Config())
+    static func config(folder: String = "mulch", home: URL = FileManager.default.homeDirectoryForCurrentUser) -> Self {
+        JSONFile(url: home.appending(path: ".config/\(folder)/config.json"), fallback: Config())
     }
 }
 
 public extension JSONFile where Value == [Run] {
-    /// Keeps a year of weekly runs.
     static let historyLimit = 52
 
-    static func history() -> Self {
-        let support = URL.applicationSupportDirectory.appending(path: "Mulch/history.json")
+    static func history(folder: String = "Mulch") -> Self {
+        let support = URL.applicationSupportDirectory.appending(path: "\(folder)/history.json")
         return JSONFile(url: support, fallback: [])
     }
 }

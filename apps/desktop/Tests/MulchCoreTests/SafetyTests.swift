@@ -39,7 +39,6 @@ import Testing
         let report = await engine.scan(config: .test())
         #expect(report.autoFindings.count == 2)
 
-        // Touched after the scan: must be refused.
         try fx.file("logs/changed.log", bytes: 10)
         let outcome = await engine.sweep(report, config: .test())
 
@@ -47,6 +46,11 @@ import Testing
         #expect(fx.exists("logs/changed.log"))
         #expect(outcome.removed == ["~/logs/old.log"])
         #expect(outcome.skipped.map(\.reason) == ["changed since the scan"])
+
+        let again = await engine.sweep(report, config: .test())
+        #expect(again.gone == outcome.gone)
+        #expect(again.removed.isEmpty)
+        #expect(report.removing(outcome.gone).autoFindings.map(\.title) == ["~/logs/changed.log"])
     }
 
     @Test func cleanerHonoursRunningApps() async throws {

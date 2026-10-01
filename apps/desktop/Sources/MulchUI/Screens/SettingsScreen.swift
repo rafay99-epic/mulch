@@ -9,6 +9,9 @@ public struct SettingsActions {
     public var addNever: (URL) -> Void
     public var removeNever: (String) -> Void
     public var openConfig: () -> Void
+    public var checkForUpdates: () -> Void
+    public var installUpdate: () -> Void
+    public var openLog: () -> Void
 
     public init(
         setMode: @escaping (String, CleanMode) -> Void,
@@ -17,7 +20,10 @@ public struct SettingsActions {
         removeRoot: @escaping (String) -> Void,
         addNever: @escaping (URL) -> Void,
         removeNever: @escaping (String) -> Void,
-        openConfig: @escaping () -> Void
+        openConfig: @escaping () -> Void,
+        checkForUpdates: @escaping () -> Void,
+        installUpdate: @escaping () -> Void,
+        openLog: @escaping () -> Void
     ) {
         self.setMode = setMode
         self.setMinAge = setMinAge
@@ -26,28 +32,32 @@ public struct SettingsActions {
         self.addNever = addNever
         self.removeNever = removeNever
         self.openConfig = openConfig
+        self.checkForUpdates = checkForUpdates
+        self.installUpdate = installUpdate
+        self.openLog = openLog
     }
 }
 
-/// The native Settings window (Cmd+comma): general, rules, folders, history.
 public struct SettingsScreen: View {
     let sections: [RuleSection]
     let roots: [String]
     let never: [String]
     let history: [HistoryPoint]
     let nextSweep: Date?
+    let about: AboutModel
     @Binding var launchAtLogin: Bool
     let actions: SettingsActions
 
     public init(
         sections: [RuleSection], roots: [String], never: [String], history: [HistoryPoint],
-        nextSweep: Date?, launchAtLogin: Binding<Bool>, actions: SettingsActions
+        nextSweep: Date?, about: AboutModel, launchAtLogin: Binding<Bool>, actions: SettingsActions
     ) {
         self.sections = sections
         self.roots = roots
         self.never = never
         self.history = history
         self.nextSweep = nextSweep
+        self.about = about
         _launchAtLogin = launchAtLogin
         self.actions = actions
     }
@@ -70,6 +80,21 @@ public struct SettingsScreen: View {
             }
             LabeledContent("Config file") {
                 Button("Open", action: actions.openConfig)
+            }
+            LabeledContent("Activity log") {
+                Button("Open", action: actions.openLog)
+            }
+            LabeledContent(about.version) {
+                if let status = about.updateStatus {
+                    HStack(spacing: 10) {
+                        Text(status).foregroundStyle(.secondary)
+                        if about.canInstall {
+                            Button("Install", action: actions.installUpdate).disabled(about.isBusy)
+                        } else {
+                            Button("Check for updates", action: actions.checkForUpdates).disabled(about.isBusy)
+                        }
+                    }
+                }
             }
         }
         .formStyle(.grouped)

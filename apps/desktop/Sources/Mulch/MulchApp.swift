@@ -1,19 +1,25 @@
 import MulchUI
 import SwiftUI
 
-/// Menu bar first. The main window opens on first launch for setup and afterwards
-/// only on request. Settings is the standard Cmd+comma window.
 @main
 struct MulchApp: App {
-    @State private var store = AppStore()
+    @State private var store: AppStore
+    @State private var updater: Updater
+
+    init() {
+        Log.launched()
+        let store = AppStore()
+        _store = State(initialValue: store)
+        _updater = State(initialValue: Updater { !store.isCleaning })
+    }
 
     var body: some Scene {
-        MenuBarExtra("Mulch", systemImage: "leaf") {
-            PopoverScene(store: store)
+        MenuBarExtra(Channel.current.displayName, systemImage: Channel.current.menuSymbol) {
+            PopoverScene(store: store, updater: updater)
         }
         .menuBarExtraStyle(.window)
 
-        Window("Mulch", id: MainScene.id) {
+        Window(Channel.current.displayName, id: MainScene.id) {
             MainScene(store: store)
         }
         .windowResizability(.contentMinSize)
@@ -21,7 +27,7 @@ struct MulchApp: App {
         .defaultLaunchBehavior(store.config.onboarded ? .suppressed : .presented)
 
         Settings {
-            SettingsScene(store: store)
+            SettingsScene(store: store, updater: updater)
         }
     }
 }

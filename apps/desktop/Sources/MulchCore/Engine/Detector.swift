@@ -1,15 +1,12 @@
 import Foundation
 
 public struct CodeRoot: Sendable, Identifiable, Hashable {
-    /// Home-relative, e.g. `~/Code`.
     public let path: String
     public let repos: Int
     public var id: String { path }
 }
 
-/// First-run discovery: where the code lives.
 public struct Detector: Sendable {
-    /// Home folders that are clearly not code roots.
     static let skippedFolders: Set<String> = ["Library", "Applications", "Movies", "Music", "Pictures", "Public"]
 
     public let paths: Paths
@@ -18,8 +15,6 @@ public struct Detector: Sendable {
         self.paths = paths
     }
 
-    /// Top-level home folders holding at least `minimumRepos` git repos, counting
-    /// repos one or two levels down. Largest first.
     public func codeRoots(minimumRepos: Int = 3) -> [CodeRoot] {
         let fileManager = FileManager.default
         let folders = (try? fileManager.contentsOfDirectory(
