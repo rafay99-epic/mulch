@@ -1,0 +1,13 @@
+{
+  "name": "mulch",
+  "private": true,
+  "packageManager": "pnpm@12.6.0",
+  "scripts": {
+    "web:dev": "pnpm --filter @mulch/website dev",
+    "web:build": "pnpm --filter @mulch/website build",
+    "web:typecheck": "pnpm --filter @mulch/website typecheck",
+    "desktop:test": "cd apps/desktop && swift test",
+    "desktop:build": "apps/desktop/Scripts/build.sh",
+    "desktop:install": "apps/desktop/Scripts/install.sh"
+  }
+}

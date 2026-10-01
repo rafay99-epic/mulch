@@ -1,0 +1,13 @@
+.DS_Store
+
+# Swift
+apps/desktop/.build/
+apps/desktop/build/
+apps/desktop/.swiftpm/
+apps/desktop/Resources/AppIcon.icns
+
+# Node
+node_modules/
+dist/
+*.tsbuildinfo
+.vite/
