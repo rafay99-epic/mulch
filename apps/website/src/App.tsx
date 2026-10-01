@@ -1,19 +1,29 @@
 import { MotionProvider } from "@/components/motion/MotionProvider"
-import { Features } from "@/components/sections/Features"
-import { Footer } from "@/components/sections/Footer"
-import { Hero } from "@/components/sections/Hero"
-import { Install } from "@/components/sections/Install"
+import { Hero } from "@/sections/Hero"
+import { HowToUse } from "@/sections/HowToUse"
+import { Install } from "@/sections/Install"
+import { Lanes } from "@/sections/Lanes"
+import { Ledger } from "@/sections/Ledger"
+import { SiteFooter } from "@/sections/SiteFooter"
+import { SiteNav } from "@/sections/SiteNav"
+import { Stats } from "@/sections/Stats"
+import { Steps } from "@/sections/Steps"
 
-/** Page composition. Each section owns its own markup; add or reorder them here. */
+/** Page order is the story: what it is, what it clears, how it works, how to use it, why it is safe, install. */
 export function App() {
   return (
     <MotionProvider>
+      <SiteNav />
       <main>
         <Hero />
-        <Features />
+        <Ledger />
+        <Steps />
+        <HowToUse />
+        <Lanes />
+        <Stats />
         <Install />
       </main>
-      <Footer />
+      <SiteFooter />
     </MotionProvider>
   )
 }
