@@ -6,16 +6,18 @@ import SwiftUI
 /// Connects the menu bar screen to the store.
 struct PopoverScene: View {
     let store: AppStore
+    let updater: Updater
     @Environment(\.openWindow) private var openWindow
 
     var body: some View {
         PopoverScreen(
-            model: Presenter.popover(store),
+            model: Presenter.popover(store, updater: updater),
             actions: PopoverActions(
                 clean: { Task { await store.cleanAuto() } },
                 cleanItem: { id in Task { await store.clean(itemIDs: [id]) } },
                 skipItem: { store.skip($0) },
-                rescan: { Task { await store.scan() } },
+                rescan: { Task { await store.rescan() } },
+                update: { updater.install() },
                 openApp: {
                     openWindow(id: MainScene.id)
                     NSApp.activate()
@@ -76,7 +78,7 @@ struct MainScene: View {
                 cleanItem: { id in Task { await store.clean(itemIDs: [id]) } },
                 skipItem: { store.skip($0) },
                 reveal: { store.reveal($0) },
-                rescan: { Task { await store.scan() } }
+                rescan: { Task { await store.rescan() } }
             )
         )
         .onChange(of: sections, initial: true) { keepSelectionValid() }
@@ -108,6 +110,7 @@ struct MainScene: View {
 /// Connects the Settings window to the store.
 struct SettingsScene: View {
     let store: AppStore
+    let updater: Updater
 
     var body: some View {
         SettingsScreen(
@@ -116,6 +119,7 @@ struct SettingsScene: View {
             never: store.config.never,
             history: Presenter.history(store.history),
             nextSweep: store.nextSweep,
+            about: Presenter.about(updater, isCleaning: store.isCleaning),
             launchAtLogin: Binding(get: { store.launchAtLogin }, set: { store.setLaunchAtLogin($0) }),
             actions: SettingsActions(
                 setMode: { store.setMode(Presenter.mode($1), ruleID: $0) },
@@ -124,7 +128,10 @@ struct SettingsScene: View {
                 removeRoot: { store.setRoot($0, enabled: false) },
                 addNever: { store.addNever($0) },
                 removeNever: { store.removeNever($0) },
-                openConfig: { store.openConfigFile() }
+                openConfig: { store.openConfigFile() },
+                checkForUpdates: { Task { await updater.check() } },
+                installUpdate: { updater.install() },
+                openLog: { NSWorkspace.shared.open(Log.url) }
             )
         )
         .preferredColorScheme(.dark)

@@ -6,6 +6,8 @@ import Foundation
 public struct Cleaner: Sendable {
     public enum Verdict: Equatable, Sendable {
         case delete(URL)
+        /// Deleted by something else since the scan.
+        case gone
         case refuse(String)
     }
 
@@ -35,6 +37,8 @@ public struct Cleaner: Sendable {
                 continue
             }
             switch await verdict(for: finding, rule: rule, protection: protection, blockers: &blockers) {
+            case .gone:
+                outcome.gone.insert(finding.id)
             case let .refuse(reason):
                 outcome.skipped.append((finding.title, reason))
             case let .delete(url):
@@ -42,6 +46,7 @@ public struct Cleaner: Sendable {
                     try FileManager.default.removeItem(at: url)
                     outcome.freedBytes += finding.bytes
                     outcome.removed.append(finding.title)
+                    outcome.gone.insert(finding.id)
                 } catch {
                     if Self.isPermissionError(error) { outcome.needsFullDiskAccess = true }
                     outcome.failures.append((finding.title, error.localizedDescription))
@@ -55,7 +60,7 @@ public struct Cleaner: Sendable {
         for finding: Finding, rule: EffectiveRule, protection: Protection, blockers: inout BlockerCheck
     ) async -> Verdict {
         guard let url = finding.url, let root = finding.root else { return .refuse("nothing to delete") }
-        guard FileManager.default.fileExists(atPath: url.path) else { return .refuse("already gone") }
+        guard FileManager.default.fileExists(atPath: url.path) else { return .gone }
         guard !protection.forbidsDeleting(url) else { return .refuse("protected path") }
         guard Paths.isContained(url, in: root) else { return .refuse("outside its folder") }
         if let reason = await blockers.reason(for: rule.rule.blockers) ?? blockers.itemReason(url, blockers: rule.rule.blockers) {
@@ -89,6 +94,7 @@ public struct Cleaner: Sendable {
                 outcome.freedBytes += finding.bytes
             }
             outcome.removed.append(finding.title)
+            outcome.gone.insert(finding.id)
         } catch {
             outcome.failures.append((finding.title, error.localizedDescription))
         }

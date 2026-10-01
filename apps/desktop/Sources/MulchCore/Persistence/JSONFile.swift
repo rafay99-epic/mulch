@@ -43,8 +43,9 @@ public struct JSONFile<Value: Codable & Sendable>: Sendable {
 }
 
 public extension JSONFile where Value == Config {
-    static func config(home: URL = FileManager.default.homeDirectoryForCurrentUser) -> Self {
-        JSONFile(url: home.appending(path: ".config/mulch/config.json"), fallback: Config())
+    /// `~/.config/<folder>/config.json`. Each release channel uses its own folder.
+    static func config(folder: String = "mulch", home: URL = FileManager.default.homeDirectoryForCurrentUser) -> Self {
+        JSONFile(url: home.appending(path: ".config/\(folder)/config.json"), fallback: Config())
     }
 }
 
@@ -52,8 +53,9 @@ public extension JSONFile where Value == [Run] {
     /// Keeps a year of weekly runs.
     static let historyLimit = 52
 
-    static func history() -> Self {
-        let support = URL.applicationSupportDirectory.appending(path: "Mulch/history.json")
+    /// `~/Library/Application Support/<folder>/history.json`.
+    static func history(folder: String = "Mulch") -> Self {
+        let support = URL.applicationSupportDirectory.appending(path: "\(folder)/history.json")
         return JSONFile(url: support, fallback: [])
     }
 }

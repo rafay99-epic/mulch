@@ -15,12 +15,12 @@ final class AppStore {
     private(set) var needsFullDiskAccess = false
     private(set) var diskFree: Int64?
     private(set) var launchAtLogin = LoginItem.isEnabled
-    /// Inbox items dismissed until the next scan.
+    /// Inbox items dismissed until the user rescans. Automatic scans keep them.
     private(set) var skipped: Set<String> = []
 
     let engine: Engine
-    @ObservationIgnored private let configFile = JSONFile.config()
-    @ObservationIgnored private let historyFile = JSONFile.history()
+    @ObservationIgnored private let configFile = JSONFile.config(folder: Channel.current.configFolder)
+    @ObservationIgnored private let historyFile = JSONFile.history(folder: Channel.current.displayName)
     @ObservationIgnored private var scanTask: Task<ScanReport, Never>?
     @ObservationIgnored private var pendingRescan: Task<Void, Never>?
     @ObservationIgnored private var scheduler: SweepScheduler?
@@ -59,29 +59,59 @@ final class AppStore {
         Task { await scan() }
     }
 
-    /// Scans at background priority. Concurrent callers share one scan. With no
-    /// previous report (first run) results appear rule by rule as they arrive.
+    /// The Rescan button. Also brings back skipped items.
+    func rescan() async {
+        skipped = []
+        message = nil
+        await scan()
+    }
+
+    /// Scans at background priority. Concurrent callers share one scan, unless
+    /// `fresh`: then a running scan is cancelled, since it started before the disk
+    /// changed. With no previous report (first run) results appear rule by rule.
     @discardableResult
-    func scan() async -> ScanReport {
-        if let scanTask { return await scanTask.value }
+    func scan(fresh: Bool = false) async -> ScanReport {
+        if fresh, let scanTask {
+            scanTask.cancel()
+            self.scanTask = nil
+            Log.info("scan: restarting, the disk changed")
+        }
+        let task = scanTask ?? startScan()
+        let result = await task.value
+        if task.isCancelled {
+            // Replaced by a fresh scan: wait for that one instead of returning stale results.
+            if scanTask != nil { return await scan() }
+            return report ?? result
+        }
+        if scanTask == task { apply(result) }
+        return result
+    }
+
+    private func startScan() -> Task<ScanReport, Never> {
         isScanning = true
+        Log.info("scan: started")
         let engine = engine
         let config = config
         let showPartial = report == nil
         let task = Task.detached(priority: .background) {
             await engine.scan(config: config) { partial in
-                guard showPartial else { return }
+                guard showPartial, !Task.isCancelled else { return }
                 await self.receive(partial)
             }
         }
         scanTask = task
-        let result = await task.value
+        return task
+    }
+
+    private func apply(_ result: ScanReport) {
         scanTask = nil
         report = result
-        skipped = []
+        skipped.formIntersection(result.rules.flatMap(\.findings).map(\.id))
         isScanning = false
         diskFree = DiskSpace.available()
-        return result
+        let seconds = Date.now.timeIntervalSince(result.date).formatted(.number.precision(.fractionLength(1)))
+        let findings = result.rules.reduce(0) { $0 + $1.findings.count }
+        Log.info("scan: \(findings) items in \(seconds)s, \(bytes(result.autoBytes)) ready, \(result.askFindings.count) asking")
     }
 
     private func receive(_ partial: RuleReport) {
@@ -133,20 +163,36 @@ final class AppStore {
     private func clean(_ findings: [Finding], from report: ScanReport, trigger: Run.Trigger) async {
         guard !isCleaning, !findings.isEmpty else { return }
         isCleaning = true
+        message = nil
         let outcome = await Task.detached(priority: .utility) { [engine, config] in
             await engine.cleaner.clean(findings, from: report, config: config)
         }.value
         isCleaning = false
         finish(outcome, trigger: trigger)
-        await scan()
+        await scan(fresh: true)
     }
 
+    /// Shows the result right away: what is gone leaves the report and free space is
+    /// reread. The fresh scan that follows corrects everything else.
     private func finish(_ outcome: Outcome, trigger: Run.Trigger) {
         record(Run(date: .now, trigger: trigger, outcome: outcome))
+        Log.info("clean (\(trigger.rawValue)): freed \(bytes(outcome.freedBytes)), removed \(outcome.removed.count), \(outcome.gone.count - outcome.removed.count) already gone")
+        for skip in outcome.skipped { Log.info("clean: skipped \(skip.title): \(skip.reason)") }
+        for failure in outcome.failures { Log.error("clean: \(failure.title): \(failure.reason)") }
+        report = report?.removing(outcome.gone)
+        diskFree = DiskSpace.available()
         needsFullDiskAccess = outcome.needsFullDiskAccess
-        message = outcome.freedBytes > 0
-            ? "Freed \(outcome.freedBytes.formatted(.byteCount(style: .file)))"
-            : (outcome.skipped.first.map { "Skipped: \($0.reason)" } ?? "Nothing to free")
+        message = if outcome.freedBytes > 0 {
+            "Freed \(bytes(outcome.freedBytes))"
+        } else if let failure = outcome.failures.first {
+            "Could not clean: \(failure.reason)"
+        } else if let skip = outcome.skipped.first {
+            "Skipped: \(skip.reason)"
+        } else if !outcome.gone.isEmpty {
+            "Already cleaned"
+        } else {
+            "Nothing to free"
+        }
     }
 
     private func currentReport() async -> ScanReport {
@@ -162,18 +208,21 @@ final class AppStore {
         else { return }
 
         let report = await scan()
+        // A manual clean may have started while this scanned.
+        guard !isCleaning else { return }
+        Log.info("sweep: weekly sweep started")
         isCleaning = true
         let outcome = await Task.detached(priority: .background) { [engine, config] in
             await engine.sweep(report, config: config)
         }.value
         isCleaning = false
         finish(outcome, trigger: .scheduled)
-        let updated = await scan()
+        let updated = await scan(fresh: true)
 
         let waiting = updated.askFindings.count
         guard outcome.freedBytes > 0 || waiting > 0 else { return }
         var lines: [String] = []
-        if outcome.freedBytes > 0 { lines.append("Freed \(outcome.freedBytes.formatted(.byteCount(style: .file))).") }
+        if outcome.freedBytes > 0 { lines.append("Freed \(bytes(outcome.freedBytes)).") }
         if waiting > 0 { lines.append("\(waiting) item\(waiting == 1 ? "" : "s") need you.") }
         await Notifier.post("Mulch swept your Mac", body: lines.joined(separator: " "))
     }
@@ -260,18 +309,28 @@ final class AppStore {
     private func reloadConfig() {
         let onDisk = configFile.load()
         if onDisk != config, FileManager.default.fileExists(atPath: configFile.url.path) {
+            Log.info("config: reloaded edits from \(configFile.url.path)")
             config = onDisk
             report = nil
         }
     }
 
     private func save() {
-        do { try configFile.save(config) } catch { message = "Could not save settings: \(error.localizedDescription)" }
+        do {
+            try configFile.save(config)
+        } catch {
+            Log.error("config: could not save: \(error.localizedDescription)")
+            message = "Could not save settings: \(error.localizedDescription)"
+        }
     }
 
     private func record(_ run: Run) {
         history = Array((history + [run]).suffix(JSONFile<[Run]>.historyLimit))
-        try? historyFile.save(history)
+        do { try historyFile.save(history) } catch { Log.error("history: could not save: \(error.localizedDescription)") }
+    }
+
+    private func bytes(_ value: Int64) -> String {
+        value.formatted(.byteCount(style: .file))
     }
 
     private func rule(_ id: String) -> Rule? {

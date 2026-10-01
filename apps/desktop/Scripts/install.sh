@@ -1,5 +1,6 @@
 #!/bin/zsh
-# Builds Mulch and installs it to /Applications, replacing a running copy.
+# Builds Mulch (Stable) from this checkout and installs it to /Applications, replacing
+# a running copy. To test a branch without touching the real app, use dev.sh.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 

@@ -47,6 +47,12 @@ import Testing
         #expect(fx.exists("logs/changed.log"))
         #expect(outcome.removed == ["~/logs/old.log"])
         #expect(outcome.skipped.map(\.reason) == ["changed since the scan"])
+
+        // Cleaning the same report again: the deleted item counts as gone, not skipped.
+        let again = await engine.sweep(report, config: .test())
+        #expect(again.gone == outcome.gone)
+        #expect(again.removed.isEmpty)
+        #expect(report.removing(outcome.gone).autoFindings.map(\.title) == ["~/logs/changed.log"])
     }
 
     @Test func cleanerHonoursRunningApps() async throws {

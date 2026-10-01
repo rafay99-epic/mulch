@@ -23,7 +23,7 @@ enum Presenter {
 
     // MARK: Popover
 
-    static func popover(_ store: AppStore) -> PopoverModel {
+    static func popover(_ store: AppStore, updater: Updater) -> PopoverModel {
         var model = PopoverModel()
         model.reclaimable = store.report?.autoBytes ?? 0
         model.bars = bars(store.report)
@@ -35,6 +35,7 @@ enum Presenter {
         model.isCleaning = store.isCleaning
         model.message = store.message
         model.needsFullDiskAccess = store.needsFullDiskAccess
+        model.update = updater.available.map { String($0.version) }
         return model
     }
 
@@ -105,7 +106,7 @@ enum Presenter {
             lastUsed: finding.newest,
             rule: rule.rule.rule.title,
             why: why(rule.rule),
-            status: isSkipped ? "skipped until the next scan" : status(finding.status),
+            status: isSkipped ? "skipped until you rescan" : status(finding.status),
             ready: finding.isEligible && !isSkipped,
             mode: mode(rule.rule.mode),
             canReveal: finding.url != nil
@@ -190,6 +191,15 @@ enum Presenter {
             }
             return rows.isEmpty ? nil : RuleSection(title: group.title, rows: rows)
         }
+    }
+
+    static func about(_ updater: Updater, isCleaning: Bool) -> AboutModel {
+        AboutModel(
+            version: "\(Channel.current.displayName) \(Channel.version)",
+            updateStatus: Updater.isEnabled ? updater.statusText : nil,
+            canInstall: updater.available != nil,
+            isBusy: isCleaning || [.checking, .installing].contains(updater.status)
+        )
     }
 
     static func history(_ runs: [Run]) -> [HistoryPoint] {

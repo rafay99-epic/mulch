@@ -74,12 +74,22 @@ public struct ScanReport: Sendable {
     public func report(for ruleID: String) -> RuleReport? {
         rules.first { $0.id == ruleID }
     }
+
+    /// The same report without the given findings, e.g. ones just cleaned.
+    public func removing(_ ids: Set<String>) -> ScanReport {
+        guard !ids.isEmpty else { return self }
+        return ScanReport(date: date, rules: rules.map { rule in
+            RuleReport(rule: rule.rule, findings: rule.findings.filter { !ids.contains($0.id) }, note: rule.note)
+        })
+    }
 }
 
 /// The result of a clean.
 public struct Outcome: Sendable {
     public var freedBytes: Int64 = 0
     public var removed: [String] = []
+    /// IDs of findings no longer on disk: removed now, or already gone before.
+    public var gone: Set<String> = []
     public var skipped: [(title: String, reason: String)] = []
     public var failures: [(title: String, reason: String)] = []
     /// Set when macOS refused a delete for lack of permission.

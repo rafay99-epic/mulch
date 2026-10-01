@@ -8,6 +8,7 @@
     "web:typecheck": "pnpm --filter @mulch/website typecheck",
     "desktop:test": "cd apps/desktop && swift test",
     "desktop:build": "apps/desktop/Scripts/build.sh",
+    "desktop:dev": "apps/desktop/Scripts/dev.sh",
     "desktop:install": "apps/desktop/Scripts/install.sh"
   }
 }

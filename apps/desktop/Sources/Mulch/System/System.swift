@@ -19,7 +19,7 @@ enum LoginItem {
         do {
             if enabled { try SMAppService.mainApp.register() } else { try SMAppService.mainApp.unregister() }
         } catch {
-            NSLog("Mulch: launch at login change failed: \(error.localizedDescription)")
+            Log.error("login item: could not \(enabled ? "enable" : "disable"): \(error.localizedDescription)")
         }
     }
 }
@@ -47,7 +47,7 @@ enum Notifier {
 /// idle enough. The handler decides whether a sweep is actually due, so the weekly
 /// clock survives reboots and relaunches. Lives as long as the app.
 final class SweepScheduler {
-    private let activity = NSBackgroundActivityScheduler(identifier: "com.rafay99.mulch.sweep")
+    private let activity = NSBackgroundActivityScheduler(identifier: "\(Bundle.main.bundleIdentifier ?? "com.rafay99.mulch").sweep")
 
     init(check: @escaping @Sendable @MainActor () async -> Void) {
         activity.repeats = true

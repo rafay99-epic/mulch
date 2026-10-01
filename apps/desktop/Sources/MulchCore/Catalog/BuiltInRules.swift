@@ -163,7 +163,7 @@ public enum BuiltInRules {
         Rule(
             id: "system.appCaches", title: "Caches of apps unused for 2 weeks", group: .system,
             target: .paths(["~/Library/Caches/*.*"]), minAgeDays: 14,
-            blockers: [.itemBundleID], excluding: ["com.apple.*", "com.rafay99.mulch"]
+            blockers: [.itemBundleID], excluding: ["com.apple.*", "com.rafay99.mulch*"]
         ),
     ]
 }

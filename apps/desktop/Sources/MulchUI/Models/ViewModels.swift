@@ -92,6 +92,25 @@ public struct PopoverModel: Sendable {
     /// Result of the last action, e.g. "Freed 12.3 GB".
     public var message: String?
     public var needsFullDiskAccess = false
+    /// A newer build ready to install, e.g. "42".
+    public var update: String?
 
     public init() {}
+}
+
+/// Version and update state for Settings.
+public struct AboutModel: Sendable {
+    /// e.g. "Mulch 42".
+    public var version: String
+    /// `nil` when this build does not update itself (Dev).
+    public var updateStatus: String?
+    public var canInstall: Bool
+    public var isBusy: Bool
+
+    public init(version: String, updateStatus: String?, canInstall: Bool, isBusy: Bool) {
+        self.version = version
+        self.updateStatus = updateStatus
+        self.canInstall = canInstall
+        self.isBusy = isBusy
+    }
 }
