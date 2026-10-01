@@ -18,7 +18,11 @@ public struct Scanner: Sendable {
         self.runner = runner
     }
 
-    public func scan(_ rules: [EffectiveRule], config: Config, now: Date = .now) async -> ScanReport {
+    /// `progress` receives each rule's report as soon as it is ready.
+    public func scan(
+        _ rules: [EffectiveRule], config: Config, now: Date = .now,
+        progress: (@Sendable (RuleReport) async -> Void)? = nil
+    ) async -> ScanReport {
         let active = rules.filter { $0.mode != .off }
         let protection = Protection(config.never, paths: paths)
         var blockers = BlockerCheck(running: await probe.runningBundleIDs(), runner: runner)
@@ -33,12 +37,14 @@ public struct Scanner: Sendable {
             let candidates: [(url: URL, root: URL)]
             switch rule.rule.target {
             case let .command(spec):
-                reports.append(await scanCommand(rule, spec, block: ruleBlock))
+                let report = await scanCommand(rule, spec, block: ruleBlock)
+                reports.append(report)
+                await progress?(report)
                 continue
             case let .paths(patterns):
                 candidates = patterns.flatMap(paths.resolve)
-            case let .keepNewest(pattern, grouping):
-                candidates = olderSiblings(pattern, grouping)
+            case let .keepNewest(pattern, newest):
+                candidates = olderSiblings(pattern, newest)
             case .projectArtifacts:
                 candidates = artifacts[rule.id] ?? []
             }
@@ -61,7 +67,9 @@ public struct Scanner: Sendable {
                     status: Self.status(block: block, minAgeDays: rule.minAgeDays, newest: size.newest, now: now)
                 ))
             }
-            reports.append(RuleReport(rule: rule, findings: findings.sorted { $0.bytes > $1.bytes }))
+            let report = RuleReport(rule: rule, findings: findings.sorted { $0.bytes > $1.bytes })
+            reports.append(report)
+            await progress?(report)
         }
         return ScanReport(date: now, rules: reports)
     }
@@ -77,27 +85,34 @@ public struct Scanner: Sendable {
 
     // MARK: Targets
 
-    /// Children of each folder matching `pattern`, minus the newest of each group.
-    func olderSiblings(_ pattern: String, _ grouping: Grouping) -> [(url: URL, root: URL)] {
+    /// Child folders of each folder matching `pattern`, minus the newest (per product
+    /// for `.versionPerProduct`). Files are ignored; they are never versions.
+    func olderSiblings(_ pattern: String, _ newest: Newest) -> [(url: URL, root: URL)] {
         paths.resolve(pattern).flatMap { folder -> [(url: URL, root: URL)] in
-            let children = (try? FileManager.default.contentsOfDirectory(
-                at: folder.url, includingPropertiesForKeys: [.contentModificationDateKey], options: .skipsHiddenFiles
-            )) ?? []
-            let groups = Dictionary(grouping: children) { Self.groupKey($0.lastPathComponent, grouping) }
+            let children = ((try? FileManager.default.contentsOfDirectory(
+                at: folder.url, includingPropertiesForKeys: [.isDirectoryKey, .contentModificationDateKey],
+                options: .skipsHiddenFiles
+            )) ?? []).filter { (try? $0.resourceValues(forKeys: [.isDirectoryKey]))?.isDirectory == true }
+
+            let groups = Dictionary(grouping: children) { newest == .versionPerProduct ? Self.product($0.lastPathComponent) : "" }
             return groups.values.flatMap { group in
-                group
-                    .sorted { (Measure.modificationDate(of: $0) ?? .distantPast) > (Measure.modificationDate(of: $1) ?? .distantPast) }
-                    .dropFirst()
-                    .map { (url: $0, root: folder.url) }
+                group.sorted { Self.isNewer($0, than: $1, by: newest) }.dropFirst().map { (url: $0, root: folder.url) }
             }
         }
     }
 
-    static func groupKey(_ name: String, _ grouping: Grouping) -> String {
-        switch grouping {
-        case .single: ""
-        case .versionedStem: String(name.reversed().drop { "0123456789.-_ ".contains($0) }.reversed())
+    static func isNewer(_ a: URL, than b: URL, by newest: Newest) -> Bool {
+        switch newest {
+        case .modified:
+            (Measure.modificationDate(of: a) ?? .distantPast) > (Measure.modificationDate(of: b) ?? .distantPast)
+        case .version, .versionPerProduct:
+            a.lastPathComponent.compare(b.lastPathComponent, options: .numeric) == .orderedDescending
         }
+    }
+
+    /// `chromium-1208` becomes `chromium`, `WebStorm2025.1` becomes `WebStorm`.
+    static func product(_ name: String) -> String {
+        String(name.reversed().drop { "0123456789.-_ ".contains($0) }.reversed())
     }
 
     /// One walk over every code root that serves all project-artifact rules. Matched
@@ -147,7 +162,7 @@ public struct Scanner: Sendable {
 
     func scanCommand(_ rule: EffectiveRule, _ spec: CommandSpec, block: String?) async -> RuleReport {
         guard runner.locate(spec.tool) != nil else {
-            return RuleReport(rule: rule, findings: [], note: "\(spec.tool) not installed")
+            return RuleReport(rule: rule, findings: [], note: "not installed")
         }
         var bytes: Int64 = 0
         switch spec.measure {
@@ -156,7 +171,7 @@ public struct Scanner: Sendable {
             if bytes == 0 { return RuleReport(rule: rule, findings: []) }
         case let .output(arguments):
             guard let result = try? await runner.run(spec.tool, arguments, timeout: .seconds(30)), result.succeeded else {
-                return RuleReport(rule: rule, findings: [], note: "\(spec.tool) is not running")
+                return RuleReport(rule: rule, findings: [], note: "not running")
             }
             bytes = result.output.split(separator: "\n").compactMap(HumanBytes.parse).reduce(0, +)
             if bytes == 0 { return RuleReport(rule: rule, findings: []) }

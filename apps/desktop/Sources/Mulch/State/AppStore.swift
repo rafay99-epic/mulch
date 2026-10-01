@@ -9,8 +9,6 @@ final class AppStore {
     private(set) var config: Config
     private(set) var report: ScanReport?
     private(set) var history: [Run]
-    private(set) var tools: [DetectedTool] = []
-    private(set) var suggestedRoots: [CodeRoot] = []
     private(set) var isScanning = false
     private(set) var isCleaning = false
     private(set) var message: String?
@@ -35,7 +33,12 @@ final class AppStore {
         config = configFile.load()
         history = historyFile.load()
         scheduler = SweepScheduler { [weak self] in await self?.runScheduledIfDue() }
-        if !config.onboarded { Task { await detect() } }
+        if !config.onboarded {
+            Task {
+                await detectRoots()
+                await scan()
+            }
+        }
     }
 
     var inbox: [Finding] {
@@ -56,14 +59,21 @@ final class AppStore {
         Task { await scan() }
     }
 
-    /// Scans at background priority. Concurrent callers share one scan.
+    /// Scans at background priority. Concurrent callers share one scan. With no
+    /// previous report (first run) results appear rule by rule as they arrive.
     @discardableResult
     func scan() async -> ScanReport {
         if let scanTask { return await scanTask.value }
         isScanning = true
         let engine = engine
         let config = config
-        let task = Task.detached(priority: .background) { await engine.scan(config: config) }
+        let showPartial = report == nil
+        let task = Task.detached(priority: .background) {
+            await engine.scan(config: config) { partial in
+                guard showPartial else { return }
+                await self.receive(partial)
+            }
+        }
         scanTask = task
         let result = await task.value
         scanTask = nil
@@ -72,6 +82,10 @@ final class AppStore {
         isScanning = false
         diskFree = DiskSpace.available()
         return result
+    }
+
+    private func receive(_ partial: RuleReport) {
+        report = ScanReport(date: report?.date ?? .now, rules: (report?.rules ?? []) + [partial])
     }
 
     /// Rescans shortly after the last settings change, so a burst of edits costs one scan.
@@ -92,6 +106,11 @@ final class AppStore {
         await clean(report.autoFindings, from: report, trigger: .manual)
     }
 
+    func cleanRule(_ ruleID: String) async {
+        guard let report, let rule = report.report(for: ruleID) else { return }
+        await clean(rule.eligible, from: report, trigger: .manual)
+    }
+
     func clean(itemIDs: Set<String>) async {
         guard let report else { return }
         let findings = report.rules.flatMap(\.findings).filter { itemIDs.contains($0.id) }
@@ -100,6 +119,15 @@ final class AppStore {
 
     func skip(_ id: String) {
         skipped.insert(id)
+    }
+
+    func finding(_ id: String) -> Finding? {
+        report?.rules.lazy.flatMap(\.findings).first { $0.id == id }
+    }
+
+    func reveal(_ id: String) {
+        guard let url = finding(id)?.url else { return }
+        NSWorkspace.shared.activateFileViewerSelecting([url])
     }
 
     private func clean(_ findings: [Finding], from report: ScanReport, trigger: Run.Trigger) async {
@@ -204,10 +232,12 @@ final class AppStore {
 
     // MARK: Onboarding
 
-    func detect() async {
+    /// Uses the home folders that hold git repos as code roots, if any are found.
+    private func detectRoots() async {
         let detector = engine.detector
-        tools = await detector.detectTools()
-        suggestedRoots = await Task.detached(priority: .utility) { detector.codeRoots() }.value
+        let roots = await Task.detached(priority: .utility) { detector.codeRoots() }.value
+        guard !roots.isEmpty else { return }
+        update(rescan: false) { $0.codeRoots = roots.map(\.path) }
     }
 
     func finishOnboarding() async {
@@ -218,13 +248,13 @@ final class AppStore {
 
     // MARK: Persistence
 
-    private func update(_ change: (inout Config) -> Void) {
+    private func update(rescan: Bool = true, _ change: (inout Config) -> Void) {
         var next = config
         change(&next)
         guard next != config else { return }
         config = next
         save()
-        scheduleRescan()
+        if rescan { scheduleRescan() }
     }
 
     private func reloadConfig() {

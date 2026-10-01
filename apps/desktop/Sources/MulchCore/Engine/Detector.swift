@@ -1,11 +1,5 @@
 import Foundation
 
-public struct DetectedTool: Sendable, Identifiable, Hashable {
-    public let name: String
-    public let installed: Bool
-    public var id: String { name }
-}
-
 public struct CodeRoot: Sendable, Identifiable, Hashable {
     /// Home-relative, e.g. `~/Code`.
     public let path: String
@@ -13,49 +7,15 @@ public struct CodeRoot: Sendable, Identifiable, Hashable {
     public var id: String { path }
 }
 
-/// First-run discovery: which dev tools are on this Mac and where the code lives.
+/// First-run discovery: where the code lives.
 public struct Detector: Sendable {
-    struct Tool: Sendable {
-        let name: String
-        let bundleIDs: [String]
-        let executable: String?
-    }
-
-    static let tools: [Tool] = [
-        Tool(name: "Xcode", bundleIDs: ["com.apple.dt.Xcode"], executable: nil),
-        Tool(name: "Android Studio", bundleIDs: ["com.google.android.studio"], executable: nil),
-        Tool(name: "Flutter", bundleIDs: [], executable: "flutter"),
-        Tool(name: "Cursor", bundleIDs: [Apps.cursor], executable: nil),
-        Tool(name: "VS Code", bundleIDs: ["com.microsoft.VSCode"], executable: nil),
-        Tool(name: "JetBrains", bundleIDs: Apps.jetbrains, executable: nil),
-        Tool(name: "Chrome", bundleIDs: ["com.google.Chrome"], executable: nil),
-        Tool(name: "Brave", bundleIDs: ["com.brave.Browser"], executable: nil),
-        Tool(name: "Docker", bundleIDs: ["com.docker.docker"], executable: "docker"),
-        Tool(name: "Homebrew", bundleIDs: [], executable: "brew"),
-        Tool(name: "pnpm", bundleIDs: [], executable: "pnpm"),
-        Tool(name: "Bun", bundleIDs: [], executable: "bun"),
-    ]
-
     /// Home folders that are clearly not code roots.
     static let skippedFolders: Set<String> = ["Library", "Applications", "Movies", "Music", "Pictures", "Public"]
 
     public let paths: Paths
-    public let probe: any SystemProbe
-    public let runner: CommandRunner
 
-    public init(paths: Paths, probe: any SystemProbe, runner: CommandRunner) {
+    public init(paths: Paths) {
         self.paths = paths
-        self.probe = probe
-        self.runner = runner
-    }
-
-    public func detectTools() async -> [DetectedTool] {
-        let installed = await probe.installedBundleIDs(among: Self.tools.flatMap(\.bundleIDs))
-        return Self.tools.map { tool in
-            let hasApp = tool.bundleIDs.contains(where: installed.contains)
-            let hasCLI = tool.executable.flatMap(runner.locate) != nil
-            return DetectedTool(name: tool.name, installed: hasApp || hasCLI)
-        }
     }
 
     /// Top-level home folders holding at least `minimumRepos` git repos, counting

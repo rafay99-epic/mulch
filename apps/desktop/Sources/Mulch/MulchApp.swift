@@ -1,8 +1,8 @@
 import MulchUI
 import SwiftUI
 
-/// Menu bar first. The main window opens on first launch for onboarding and
-/// afterwards only on request.
+/// Menu bar first. The main window opens on first launch for setup and afterwards
+/// only on request. Settings is the standard Cmd+comma window.
 @main
 struct MulchApp: App {
     @State private var store = AppStore()
@@ -17,7 +17,11 @@ struct MulchApp: App {
             MainScene(store: store)
         }
         .windowResizability(.contentMinSize)
-        .defaultSize(width: 980, height: 640)
+        .defaultSize(width: 860, height: 560)
         .defaultLaunchBehavior(store.config.onboarded ? .suppressed : .presented)
+
+        Settings {
+            SettingsScene(store: store)
+        }
     }
 }

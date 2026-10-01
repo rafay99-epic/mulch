@@ -28,20 +28,22 @@ struct PopoverScene: View {
     }
 }
 
-/// Connects the main window to the store. Shows onboarding until it is finished,
-/// inside the same constant frame, and a Dock icon only while open.
+/// Connects the main window to the store: first run until it is finished, then the
+/// three-pane inspector. Same constant frame for both; Dock icon only while open.
 struct MainScene: View {
     static let id = "main"
 
     let store: AppStore
-    @State private var page: Page = .overview
+    @State private var selectedRule: String?
+    @State private var selectedItem: String?
 
     var body: some View {
         Group {
-            if store.config.onboarded { shell } else { onboarding }
+            if store.config.onboarded { inspector } else { firstRun }
         }
-        .frame(minWidth: 820, minHeight: 540)
+        .frame(minWidth: 760, minHeight: 480)
         .preferredColorScheme(.dark)
+        .tint(Theme.auto)
         .onAppear {
             NSApp.setActivationPolicy(.regular)
             store.refreshIfStale()
@@ -49,63 +51,83 @@ struct MainScene: View {
         .onDisappear { NSApp.setActivationPolicy(.accessory) }
     }
 
-    private var shell: some View {
-        MainShell(selection: $page, inboxCount: store.inbox.count) { page in
-            switch page {
-            case .overview:
-                OverviewScreen(
-                    rows: Presenter.ledger(store.report),
-                    reclaimable: store.report?.autoBytes ?? 0,
-                    isScanning: store.isScanning,
-                    isCleaning: store.isCleaning,
-                    onClean: { Task { await store.cleanAuto() } },
-                    onRescan: { Task { await store.scan() } }
-                )
-            case .inbox:
-                InboxScreen(
-                    items: Presenter.inbox(store.inbox, report: store.report),
-                    onClean: { id in Task { await store.clean(itemIDs: [id]) } },
-                    onSkip: { store.skip($0) },
-                    onCleanAll: { Task { await store.clean(itemIDs: Set(store.inbox.map(\.id))) } }
-                )
-            case .rules:
-                RulesScreen(
-                    sections: Presenter.ruleSections(store),
-                    roots: store.config.codeRoots,
-                    never: store.config.never,
-                    launchAtLogin: Binding(get: { store.launchAtLogin }, set: { store.setLaunchAtLogin($0) }),
-                    actions: RulesActions(
-                        setMode: { store.setMode(Presenter.mode($1), ruleID: $0) },
-                        setMinAge: { store.setMinAge($1, ruleID: $0) },
-                        addRoot: { store.addRoot($0) },
-                        removeRoot: { store.setRoot($0, enabled: false) },
-                        addNever: { store.addNever($0) },
-                        removeNever: { store.removeNever($0) },
-                        openConfig: { store.openConfigFile() }
-                    )
-                )
-            case .history:
-                HistoryScreen(points: Presenter.history(store.history))
-            }
+    private var sections: [RuleListSection] { Presenter.ruleList(store.report) }
+    private var rule: RuleReport? { selectedRule.flatMap { store.report?.report(for: $0) } }
+
+    private var detail: ItemDetail? {
+        guard let rule, let finding = selectedItem.flatMap(store.finding) else { return nil }
+        return Presenter.detail(finding, rule: rule, paths: store.engine.paths, skipped: store.skipped)
+    }
+
+    private var inspector: some View {
+        InspectorScreen(
+            sections: sections,
+            selectedRule: $selectedRule,
+            summary: rule.map(Presenter.summary),
+            items: rule.map { Presenter.items($0, skipped: store.skipped) } ?? [],
+            selectedItem: $selectedItem,
+            detail: detail,
+            reclaimable: store.report?.autoBytes ?? 0,
+            isScanning: store.isScanning,
+            isCleaning: store.isCleaning,
+            actions: InspectorActions(
+                cleanAll: { Task { await store.cleanAuto() } },
+                cleanRule: { id in Task { await store.cleanRule(id) } },
+                cleanItem: { id in Task { await store.clean(itemIDs: [id]) } },
+                skipItem: { store.skip($0) },
+                reveal: { store.reveal($0) },
+                rescan: { Task { await store.scan() } }
+            )
+        )
+        .onChange(of: sections, initial: true) { keepSelectionValid() }
+        .onChange(of: selectedRule) {
+            selectedItem = rule?.findings.first?.id
         }
     }
 
-    private var onboarding: some View {
-        OnboardingScreen(
-            tools: Presenter.tools(store.tools),
-            roots: Presenter.rootChoices(store),
-            groups: Presenter.groupChoices(store),
+    /// Selects the first rule when nothing valid is selected, e.g. after a rescan.
+    private func keepSelectionValid() {
+        let ids = sections.flatMap(\.items).map(\.id)
+        if selectedRule.map(ids.contains) != true { selectedRule = ids.first }
+        if let selectedItem, store.finding(selectedItem) == nil { self.selectedItem = rule?.findings.first?.id }
+    }
+
+    private var firstRun: some View {
+        FirstRunScreen(
+            rows: Presenter.firstRunRows(store),
             reclaimable: store.report?.autoBytes ?? 0,
             isScanning: store.isScanning,
-            actions: OnboardingActions(
-                toggleRoot: { store.setRoot($0, enabled: $1) },
+            onToggle: { id, enabled in
+                if let group = RuleGroup(rawValue: id) { store.setGroup(group, enabled: enabled) }
+            },
+            onFinish: { Task { await store.finishOnboarding() } }
+        )
+    }
+}
+
+/// Connects the Settings window to the store.
+struct SettingsScene: View {
+    let store: AppStore
+
+    var body: some View {
+        SettingsScreen(
+            sections: Presenter.ruleSections(store),
+            roots: store.config.codeRoots,
+            never: store.config.never,
+            history: Presenter.history(store.history),
+            nextSweep: store.nextSweep,
+            launchAtLogin: Binding(get: { store.launchAtLogin }, set: { store.setLaunchAtLogin($0) }),
+            actions: SettingsActions(
+                setMode: { store.setMode(Presenter.mode($1), ruleID: $0) },
+                setMinAge: { store.setMinAge($1, ruleID: $0) },
                 addRoot: { store.addRoot($0) },
-                toggleGroup: { id, enabled in
-                    if let group = RuleGroup(rawValue: id) { store.setGroup(group, enabled: enabled) }
-                },
-                review: { Task { await store.scan() } },
-                finish: { Task { await store.finishOnboarding() } }
+                removeRoot: { store.setRoot($0, enabled: false) },
+                addNever: { store.addNever($0) },
+                removeNever: { store.removeNever($0) },
+                openConfig: { store.openConfigFile() }
             )
         )
+        .preferredColorScheme(.dark)
+        .tint(Theme.auto)
     }
 }

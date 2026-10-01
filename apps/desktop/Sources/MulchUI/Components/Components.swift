@@ -16,8 +16,9 @@ public enum Theme {
         }
     }
 
+    /// File-style sizes; zero reads "0 KB" rather than Foundation's "Zero kB".
     public static func bytes(_ value: Int64) -> String {
-        value.formatted(.byteCount(style: .file))
+        value == 0 ? "0 KB" : value.formatted(.byteCount(style: .file))
     }
 }
 
@@ -176,45 +177,5 @@ public struct InboxRow: View {
             Button("Clean", action: onClean).buttonStyle(.glassProminent).controlSize(.small)
             Button("Skip", action: onSkip).buttonStyle(.borderless).controlSize(.small)
         }
-    }
-}
-
-public struct ToolStatusRow: View {
-    let tool: ToolStatus
-
-    public init(_ tool: ToolStatus) { self.tool = tool }
-
-    public var body: some View {
-        HStack(spacing: 10) {
-            Text(tool.state == .found ? "ok" : "skip")
-                .font(.caption.monospaced().weight(.semibold))
-                .foregroundStyle(tool.state == .found ? Theme.auto : Theme.off)
-                .frame(width: 34, alignment: .leading)
-            Text(tool.name).foregroundStyle(tool.state == .found ? .primary : .secondary)
-        }
-        .font(.system(.body, design: .monospaced))
-    }
-}
-
-/// A toggleable line with a detail on the right, used by onboarding.
-public struct ChoiceRow: View {
-    let choice: Choice
-    let onToggle: (Bool) -> Void
-
-    public init(_ choice: Choice, onToggle: @escaping (Bool) -> Void) {
-        self.choice = choice
-        self.onToggle = onToggle
-    }
-
-    public var body: some View {
-        Toggle(isOn: Binding(get: { choice.enabled }, set: { onToggle($0) })) {
-            HStack {
-                Text(choice.title)
-                Spacer()
-                Text(choice.detail).monospacedDigit().foregroundStyle(.secondary)
-            }
-        }
-        .toggleStyle(.switch)
-        .controlSize(.small)
     }
 }

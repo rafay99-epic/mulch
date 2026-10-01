@@ -45,19 +45,26 @@ import Testing
         #expect(report.rules.flatMap(\.findings).isEmpty)
     }
 
-    @Test func keepNewestKeepsTheNewestOfEachGroup() throws {
+    @Test func keepNewestKeepsTheNewestOfEachProduct() throws {
         let fx = try Fixture()
         defer { fx.cleanup() }
         for name in ["chromium-1208", "chromium-1234", "ffmpeg-1011"] { try fx.file("pw/\(name)/bin") }
-        try fx.age("pw/chromium-1208", days: 20)
-        try fx.age("pw/ffmpeg-1011", days: 20)
+
+        let stale = fx.engine(rules: []).scanner.olderSiblings("~/pw", .versionPerProduct).map { $0.url.lastPathComponent }
+        #expect(stale == ["chromium-1208"])
+    }
+
+    @Test func versionsBeatModificationDates() throws {
+        let fx = try Fixture()
+        defer { fx.cleanup() }
+        try fx.file("ndk/29.0.14206865/bin")
+        try fx.age("ndk/29.0.14206865", days: 30)
+        try fx.file("ndk/28.2.13676358/bin")
+        try fx.file("ndk/CACHEDIR.TAG")
 
         let scanner = fx.engine(rules: []).scanner
-        let stale = scanner.olderSiblings("~/pw", .versionedStem).map { $0.url.lastPathComponent }
-        #expect(stale == ["chromium-1208"])
-
-        let single = scanner.olderSiblings("~/pw", .single).map { $0.url.lastPathComponent }.sorted()
-        #expect(single == ["chromium-1208", "ffmpeg-1011"])
+        #expect(scanner.olderSiblings("~/ndk", .version).map { $0.url.lastPathComponent } == ["28.2.13676358"])
+        #expect(scanner.olderSiblings("~/ndk", .modified).map { $0.url.lastPathComponent } == ["29.0.14206865"])
     }
 
     @Test func blockedAppsWinOverAge() {

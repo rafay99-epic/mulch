@@ -21,6 +21,8 @@ enum Presenter {
         }
     }
 
+    // MARK: Popover
+
     static func popover(_ store: AppStore) -> PopoverModel {
         var model = PopoverModel()
         model.reclaimable = store.report?.autoBytes ?? 0
@@ -56,31 +58,126 @@ enum Presenter {
         }
     }
 
-    static func ledger(_ report: ScanReport?) -> [LedgerRow] {
-        (report?.rules ?? [])
-            .filter { !$0.findings.isEmpty || $0.note != nil }
-            .sorted { $0.totalBytes > $1.totalBytes }
-            .map { rule in
-                LedgerRow(
-                    id: rule.id, title: rule.rule.rule.title, group: rule.rule.rule.group.title,
-                    bytes: rule.totalBytes, mode: mode(rule.rule.mode), status: status(rule)
-                )
-            }
+    static func freedThisMonth(_ runs: [Run], now: Date = .now) -> Int64 {
+        runs.filter { Calendar.current.isDate($0.date, equalTo: now, toGranularity: .month) }
+            .reduce(0) { $0 + $1.freedBytes }
     }
 
-    static func status(_ report: RuleReport) -> String {
-        let ready = report.eligible.count
-        if ready > 0 {
-            let noun = ready == 1 ? "item" : "items"
-            return report.rule.mode == .ask ? "\(ready) \(noun) waiting" : "\(ready) \(noun) ready"
-        }
-        if let note = report.note { return note }
-        switch report.findings.first?.status {
-        case let .blocked(reason): return reason
-        case let .tooRecent(days): return "used \(days)d ago"
-        default: return "nothing to clean"
+    // MARK: Main window
+
+    /// Rules that found something: weekly ones first, then those that ask.
+    static func ruleList(_ report: ScanReport?) -> [RuleListSection] {
+        let visible = (report?.rules ?? []).filter { !$0.findings.isEmpty }.sorted { $0.totalBytes > $1.totalBytes }
+        return [("Weekly", Mode.auto), ("Asks first", Mode.ask)].compactMap { title, mode in
+            let items = visible.filter { $0.rule.mode == mode }.map {
+                RuleListItem(id: $0.id, title: $0.rule.rule.title, bytes: $0.totalBytes, mode: self.mode(mode))
+            }
+            return items.isEmpty ? nil : RuleListSection(title: title, items: items)
         }
     }
+
+    static func summary(_ rule: RuleReport) -> RuleSummary {
+        RuleSummary(
+            id: rule.id, title: rule.rule.rule.title, mode: mode(rule.rule.mode),
+            readyBytes: rule.eligibleBytes, readyCount: rule.eligible.count, why: why(rule.rule)
+        )
+    }
+
+    static func items(_ rule: RuleReport, skipped: Set<String>) -> [ItemRow] {
+        rule.findings.map { finding in
+            let isSkipped = skipped.contains(finding.id)
+            return ItemRow(
+                id: finding.id, title: relativeTitle(finding), bytes: finding.bytes,
+                status: isSkipped ? "skipped" : status(finding.status),
+                ready: finding.isEligible && !isSkipped
+            )
+        }
+    }
+
+    static func detail(_ finding: Finding, rule: RuleReport, paths: Paths, skipped: Set<String>) -> ItemDetail {
+        let isSkipped = skipped.contains(finding.id)
+        return ItemDetail(
+            id: finding.id,
+            name: finding.url?.lastPathComponent ?? finding.title,
+            path: finding.title,
+            folder: finding.url.map { paths.abbreviate($0.deletingLastPathComponent()) },
+            bytes: finding.bytes,
+            lastUsed: finding.newest,
+            rule: rule.rule.rule.title,
+            why: why(rule.rule),
+            status: isSkipped ? "skipped until the next scan" : status(finding.status),
+            ready: finding.isEligible && !isSkipped,
+            mode: mode(rule.rule.mode),
+            canReveal: finding.url != nil
+        )
+    }
+
+    /// Plain-language reason a rule's items are safe to remove.
+    static func why(_ rule: EffectiveRule) -> String {
+        var parts: [String] = []
+        switch rule.rule.target {
+        case .projectArtifacts: parts.append("Project output, rebuilt by your tools")
+        case .keepNewest: parts.append("Older version, the newest is kept")
+        case let .command(spec): parts.append("Runs \(([spec.tool] + spec.clean).joined(separator: " "))")
+        case .paths: parts.append("Cache, rebuilt when needed")
+        }
+        if let days = rule.minAgeDays, days > 0 { parts.append("unused for \(days)+ days") }
+        let apps = rule.rule.blockers.compactMap { blocker -> String? in
+            switch blocker {
+            case let .app(_, name), let .appPrefix(_, name), let .process(_, name): name
+            case .itemBundleID: "its app"
+            }
+        }
+        if !apps.isEmpty { parts.append("only while \(apps.joined(separator: " and ")) is closed") }
+        return parts.joined(separator: ", ")
+    }
+
+    static func status(_ status: Finding.Status) -> String {
+        switch status {
+        case .eligible: "ready"
+        case let .tooRecent(days): days == 0 ? "used today" : "used \(days)d ago"
+        case let .blocked(reason): reason
+        }
+    }
+
+    /// The path below the rule's folder, e.g. `echoes/apps/game/build` under `~/Code`.
+    static func relativeTitle(_ finding: Finding) -> String {
+        guard let path = finding.url?.path, let root = finding.root?.path else { return finding.title }
+        let base = root.hasSuffix("/") ? root : root + "/"
+        return path.hasPrefix(base) ? String(path.dropFirst(base.count)) : finding.title
+    }
+
+    // MARK: First run
+
+    static func firstRunRows(_ store: AppStore) -> [FirstRunRow] {
+        let effective = store.config.effective(store.engine.rules)
+        return RuleGroup.allCases.compactMap { group in
+            let rules = effective.filter { $0.rule.group == group }
+            guard !rules.isEmpty else { return nil }
+            let active = rules.filter { $0.mode != .off }
+            let reports = active.compactMap { store.report?.report(for: $0.id) }
+            let title = group == .code
+                ? "Code, \(store.config.codeRoots.joined(separator: ", "))"
+                : group.title
+            let bytes = reports.reduce(0) { $0 + $1.eligibleBytes }
+            let note = reports.compactMap(\.note).first
+            let blocked = reports.flatMap(\.findings).lazy.compactMap { finding -> String? in
+                if case let .blocked(reason) = finding.status { return reason }
+                return nil
+            }.first
+            let asks = !active.isEmpty && active.allSatisfy { $0.mode == .ask }
+            return FirstRunRow(
+                id: group.rawValue,
+                title: title,
+                tag: note ?? (bytes == 0 ? blocked : nil) ?? (asks ? "asks first" : nil),
+                bytes: bytes,
+                done: store.report != nil && reports.count == active.count,
+                enabled: !active.isEmpty
+            )
+        }
+    }
+
+    // MARK: Settings
 
     static func ruleSections(_ store: AppStore) -> [RuleSection] {
         let effective = store.config.effective(store.engine.rules)
@@ -97,40 +194,5 @@ enum Presenter {
 
     static func history(_ runs: [Run]) -> [HistoryPoint] {
         runs.map { HistoryPoint(date: $0.date, bytes: $0.freedBytes, scheduled: $0.trigger == .scheduled) }
-    }
-
-    static func freedThisMonth(_ runs: [Run], now: Date = .now) -> Int64 {
-        runs.filter { Calendar.current.isDate($0.date, equalTo: now, toGranularity: .month) }
-            .reduce(0) { $0 + $1.freedBytes }
-    }
-
-    static func tools(_ tools: [DetectedTool]) -> [ToolStatus] {
-        tools.map { ToolStatus(name: $0.name, state: $0.installed ? .found : .missing) }
-    }
-
-    static func rootChoices(_ store: AppStore) -> [Choice] {
-        let repos = Dictionary(store.suggestedRoots.map { ($0.path, $0.repos) }, uniquingKeysWith: { first, _ in first })
-        let paths = store.suggestedRoots.map(\.path) + store.config.codeRoots.filter { repos[$0] == nil }
-        return paths.map { path in
-            Choice(
-                id: path, title: path,
-                detail: repos[path].map { "\($0) repos" } ?? "",
-                enabled: store.config.codeRoots.contains(path)
-            )
-        }
-    }
-
-    static func groupChoices(_ store: AppStore) -> [Choice] {
-        let effective = store.config.effective(store.engine.rules)
-        return RuleGroup.allCases.compactMap { group in
-            let rules = effective.filter { $0.rule.group == group }
-            guard !rules.isEmpty else { return nil }
-            let bytes = rules.compactMap { store.report?.report(for: $0.id)?.eligibleBytes }.reduce(0, +)
-            return Choice(
-                id: group.rawValue, title: group.title,
-                detail: store.report == nil ? "" : bytes.formatted(.byteCount(style: .file)),
-                enabled: rules.contains { $0.mode != .off }
-            )
-        }
     }
 }

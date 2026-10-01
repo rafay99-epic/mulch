@@ -39,13 +39,16 @@ public enum Blocker: Sendable, Hashable {
     case itemBundleID
 }
 
-/// How a "keep newest" target groups siblings before keeping the newest of each group.
-public enum Grouping: Sendable, Hashable {
-    /// All children form one group.
-    case single
-    /// Children grouped by name with trailing version characters removed,
-    /// so `chromium-1208` and `chromium-1234` share the stem `chromium`.
-    case versionedStem
+/// How a "keep newest" target decides which child folder is the newest.
+public enum Newest: Sendable, Hashable {
+    /// Most recently modified wins. For folders with random names, like browser clones.
+    case modified
+    /// Highest version in the name wins, compared numerically, so `29.0` beats `28.2`
+    /// even when `28.2` was touched more recently.
+    case version
+    /// Highest version per product: names are grouped with trailing version characters
+    /// removed, so `chromium-1234` beats `chromium-1208` while `ffmpeg-1011` is kept.
+    case versionPerProduct
 }
 
 /// How a command rule reports the space it can free.
@@ -78,8 +81,8 @@ public enum Target: Sendable, Hashable {
     /// Folders found under the code roots, keyed by name. A name only counts when its
     /// parent holds one of the listed manifests; an empty list means always.
     case projectArtifacts([String: [String]])
-    /// Children of each matching folder, minus the newest per group.
-    case keepNewest(String, Grouping)
+    /// Child folders of each matching folder, minus the newest.
+    case keepNewest(String, Newest)
     /// A tool that cleans up after itself.
     case command(CommandSpec)
 }

@@ -9,12 +9,6 @@ nonisolated struct WorkspaceProbe: SystemProbe {
     func runningBundleIDs() async -> Set<String> {
         await MainActor.run { Set(NSWorkspace.shared.runningApplications.compactMap(\.bundleIdentifier)) }
     }
-
-    func installedBundleIDs(among candidates: [String]) async -> Set<String> {
-        await MainActor.run {
-            Set(candidates.filter { NSWorkspace.shared.urlForApplication(withBundleIdentifier: $0) != nil })
-        }
-    }
 }
 
 /// Launch at login through `SMAppService`. Only works from the installed .app bundle.

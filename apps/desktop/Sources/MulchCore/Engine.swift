@@ -14,11 +14,11 @@ public struct Engine: Sendable {
         self.rules = rules
         scanner = Scanner(paths: paths, probe: probe, runner: runner)
         cleaner = Cleaner(paths: paths, probe: probe, runner: runner)
-        detector = Detector(paths: paths, probe: probe, runner: runner)
+        detector = Detector(paths: paths)
     }
 
-    public func scan(config: Config) async -> ScanReport {
-        await scanner.scan(config.effective(rules), config: config)
+    public func scan(config: Config, progress: (@Sendable (RuleReport) async -> Void)? = nil) async -> ScanReport {
+        await scanner.scan(config.effective(rules), config: config, progress: progress)
     }
 
     /// Cleans everything eligible under Auto rules. Ask items stay in the report for the inbox.

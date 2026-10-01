@@ -10,21 +10,6 @@ public enum CleanMode: String, CaseIterable, Identifiable, Sendable {
     public var title: String { rawValue.capitalized }
 }
 
-public enum Page: String, CaseIterable, Identifiable, Sendable {
-    case overview, inbox, rules, history
-
-    public var id: String { rawValue }
-    public var title: String { rawValue.capitalized }
-    public var symbol: String {
-        switch self {
-        case .overview: "chart.bar.xaxis"
-        case .inbox: "tray"
-        case .rules: "slider.horizontal.3"
-        case .history: "clock.arrow.circlepath"
-        }
-    }
-}
-
 /// One rule as a proportional bar.
 public struct BarItem: Identifiable, Hashable, Sendable {
     public let id: String
@@ -52,25 +37,6 @@ public struct InboxItem: Identifiable, Hashable, Sendable {
         self.title = title
         self.detail = detail
         self.bytes = bytes
-    }
-}
-
-/// One row of the overview table.
-public struct LedgerRow: Identifiable, Hashable, Sendable {
-    public let id: String
-    public let title: String
-    public let group: String
-    public let bytes: Int64
-    public let mode: CleanMode
-    public let status: String
-
-    public init(id: String, title: String, group: String, bytes: Int64, mode: CleanMode, status: String) {
-        self.id = id
-        self.title = title
-        self.group = group
-        self.bytes = bytes
-        self.mode = mode
-        self.status = status
     }
 }
 
@@ -111,34 +77,6 @@ public struct HistoryPoint: Identifiable, Hashable, Sendable {
         self.date = date
         self.bytes = bytes
         self.scheduled = scheduled
-    }
-}
-
-/// A detection line in onboarding.
-public struct ToolStatus: Identifiable, Hashable, Sendable {
-    public enum State: Sendable { case found, missing }
-    public let name: String
-    public let state: State
-    public var id: String { name }
-
-    public init(name: String, state: State) {
-        self.name = name
-        self.state = state
-    }
-}
-
-/// A selectable entry in onboarding: a code folder or a rule group.
-public struct Choice: Identifiable, Hashable, Sendable {
-    public let id: String
-    public let title: String
-    public let detail: String
-    public let enabled: Bool
-
-    public init(id: String, title: String, detail: String, enabled: Bool) {
-        self.id = id
-        self.title = title
-        self.detail = detail
-        self.enabled = enabled
     }
 }
 

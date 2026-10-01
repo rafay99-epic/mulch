@@ -8,10 +8,6 @@ enum Apps {
     static let vscode = "com.microsoft.VSCode"
     static let androidStudio = "com.google.android.studio"
     static let simulator = "com.apple.iphonesimulator"
-    static let jetbrains = [
-        "com.jetbrains.intellij", "com.jetbrains.WebStorm", "com.jetbrains.pycharm",
-        "com.jetbrains.goland", "com.jetbrains.CLion", "com.jetbrains.rider",
-    ]
 }
 
 /// The default rule catalog. Order matters: when two rules match the same path,
@@ -45,7 +41,7 @@ public enum BuiltInRules {
     static let browsers: [Rule] = [
         Rule(
             id: "browsers.clones", title: "Browser update leftovers", group: .browsers,
-            target: .keepNewest("$X/*.code_sign_clone", .single), minAgeDays: 1
+            target: .keepNewest("$X/*.code_sign_clone", .modified), minAgeDays: 1
         ),
         Rule(
             id: "browsers.chromeCache", title: "Chrome cache", group: .browsers,
@@ -75,7 +71,7 @@ public enum BuiltInRules {
         ),
         Rule(
             id: "xcode.deviceSupport", title: "Old iOS device support", group: .xcode,
-            target: .keepNewest("~/Library/Developer/Xcode/iOS DeviceSupport", .single), defaultMode: .ask
+            target: .keepNewest("~/Library/Developer/Xcode/iOS DeviceSupport", .version), defaultMode: .ask
         ),
     ]
 
@@ -87,11 +83,11 @@ public enum BuiltInRules {
         ),
         Rule(
             id: "android.gradleWrappers", title: "Old Gradle versions", group: .android,
-            target: .keepNewest("~/.gradle/wrapper/dists", .single), defaultMode: .ask
+            target: .keepNewest("~/.gradle/wrapper/dists", .version), defaultMode: .ask
         ),
         Rule(
             id: "android.ndk", title: "Old Android NDKs", group: .android,
-            target: .keepNewest("~/Library/Android/sdk/ndk", .single), defaultMode: .ask
+            target: .keepNewest("~/Library/Android/sdk/ndk", .version), defaultMode: .ask
         ),
     ]
 
@@ -117,11 +113,11 @@ public enum BuiltInRules {
         ),
         Rule(
             id: "editors.jetbrainsCaches", title: "JetBrains old version caches", group: .editors,
-            target: .keepNewest("~/Library/Caches/JetBrains", .versionedStem)
+            target: .keepNewest("~/Library/Caches/JetBrains", .versionPerProduct)
         ),
         Rule(
             id: "editors.jetbrainsSettings", title: "JetBrains old version settings", group: .editors,
-            target: .keepNewest("~/Library/Application Support/JetBrains", .versionedStem), defaultMode: .ask
+            target: .keepNewest("~/Library/Application Support/JetBrains", .versionPerProduct), defaultMode: .ask
         ),
     ]
 
@@ -136,7 +132,7 @@ public enum BuiltInRules {
         ),
         Rule(
             id: "packages.playwright", title: "Old Playwright browsers", group: .packages,
-            target: .keepNewest("~/Library/Caches/ms-playwright", .versionedStem)
+            target: .keepNewest("~/Library/Caches/ms-playwright", .versionPerProduct)
         ),
         Rule(
             id: "packages.pnpm", title: "pnpm store", group: .packages,

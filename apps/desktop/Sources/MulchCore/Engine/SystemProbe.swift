@@ -1,10 +1,9 @@
 import Foundation
 
-/// What the engine needs to know about installed and running apps. The app target
-/// implements it with `NSWorkspace`; tests use fixed sets.
+/// What the engine needs to know about running apps. The app target implements it
+/// with `NSWorkspace`; tests use a fixed set.
 public protocol SystemProbe: Sendable {
     func runningBundleIDs() async -> Set<String>
-    func installedBundleIDs(among candidates: [String]) async -> Set<String>
 }
 
 /// Answers "why can't this rule run right now?" for a scan or clean.

@@ -44,9 +44,7 @@ struct Fixture {
 
 struct FixedProbe: SystemProbe {
     var running: Set<String> = []
-    var installed: Set<String> = []
     func runningBundleIDs() async -> Set<String> { running }
-    func installedBundleIDs(among candidates: [String]) async -> Set<String> { installed.intersection(candidates) }
 }
 
 extension Config {
