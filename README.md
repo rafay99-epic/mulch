@@ -43,15 +43,24 @@ Each has its own config, history, log, menu bar icon and icon color, so both run
 
 ## Releases
 
-Every push to `main` that touches `apps/desktop` runs `.github/workflows/release.yml`: tests, build, sign, zip, and a GitHub Release `v<commit count>` titled `Mulch <commit count>` with `Mulch.zip`. Installed apps read the version from that title and download that zip, and the Homebrew cask installs `releases/latest/download/Mulch.zip`, so keep both names. Pull requests run `ci.yml` (Swift tests and the website build).
+Every push to `main` that touches `apps/desktop` runs `.github/workflows/release.yml`: tests, build, sign, notarize, zip, and a GitHub Release `v<commit count>` titled `Mulch <commit count>` with `Mulch.zip`. Installed apps read the version from that title and download that zip, and the Homebrew cask installs `releases/latest/download/Mulch.zip`, so keep both names. Pull requests run `ci.yml` (Swift tests and the website build).
 
-Releases are signed with the self-signed **Mulch Signing** identity from Actions secrets. To create or rotate it:
+Releases are signed with the Syntax Labs Developer ID Application certificate (team `MGH5K382YN`, hardened runtime), notarized by Apple and stapled, so Gatekeeper opens them with no warning. `.github/scripts/setup-signing.sh` reads five Actions secrets, the same values as Vitals:
+
+| Secret | Value |
+| --- | --- |
+| `MACOS_SIGN_CERT_P12` | base64 of the Developer ID Application `.p12` |
+| `MACOS_SIGN_CERT_PASSWORD` | its password |
+| `APPLE_API_KEY_P8` | the App Store Connect API key (`.p8` contents) |
+| `APPLE_API_KEY_ID` | its Key ID |
+| `APPLE_API_ISSUER_ID` | its Issuer ID |
+
+A missing secret or a rejected notarization fails the release. Every build, local included, signs with the Developer ID and fails without it; there is no ad-hoc signing. To build a signed, notarized `Mulch.zip` locally with the keys in `~/.vitals-signing` (signs from a throwaway keychain, so no keychain prompt):
 
 ```sh
-apps/desktop/Scripts/make-signing-cert.sh --github
+apps/desktop/Scripts/sign.sh          # build, notarize, package
+apps/desktop/Scripts/sign.sh status   # recent notarizations
 ```
-
-Local builds sign with `CODESIGN_IDENTITY`, else your Apple Development certificate, else Mulch Signing, else ad-hoc.
 
 ## Logs and crashes
 

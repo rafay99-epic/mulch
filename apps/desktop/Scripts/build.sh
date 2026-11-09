@@ -4,9 +4,9 @@
 #   MULCH_CHANNEL=stable   Mulch.app      com.rafay99.mulch       (default, released from main)
 #   MULCH_CHANNEL=dev      Mulch Dev.app  com.rafay99.mulch.dev   (local, never updates)
 #
-# Signs with a stable identity so launch-at-login and privacy grants survive rebuilds:
-# CODESIGN_IDENTITY if set, else your Apple Development cert, else "Mulch Signing"
-# (made by make-signing-cert.sh), else ad-hoc.
+# Signs with the team's Developer ID Application certificate (hardened runtime +
+# secure timestamp, which notarization needs). There is no fallback: a missing
+# identity fails the build. Scripts/package.sh zips and notarizes the result.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -67,15 +67,21 @@ if [[ ! -f "$ICON" ]]; then
 fi
 cp "$ICON" "$APP/Contents/Resources/AppIcon.icns"
 
-# Identity order: $CODESIGN_IDENTITY, an Apple Development cert, "Mulch Signing", ad-hoc.
-IDENTITIES="$(security find-identity -p codesigning 2>/dev/null || true)"
-IDENTITY="${CODESIGN_IDENTITY:-$(grep -o '"Apple Development: [^"]*"' <<< "$IDENTITIES" | head -1 | tr -d '"')}"
-IDENTITY="${IDENTITY:-Mulch Signing}"
-if ! grep -qF "\"$IDENTITY\"" <<< "$IDENTITIES"; then
-  echo "Signing identity \"$IDENTITY\" not found; signing ad-hoc. Run Scripts/make-signing-cert.sh once to fix." >&2
-  IDENTITY="-"
+# Code signing. Every build, local or CI, signs with the Developer ID: the
+# designated requirement is the Team ID, so launch-at-login and privacy grants
+# survive updates and rebuilds. CODESIGN_IDENTITY overrides the identity.
+# CODESIGN_KEYCHAIN (set by sign.sh) signs from an unlocked throwaway keychain,
+# so no keychain dialog blocks a run. One binary, no nested code, no entitlements:
+# Mulch only spawns processes and uses SMAppService, which the runtime allows.
+IDENTITY="${CODESIGN_IDENTITY:-Developer ID Application: Syntax Labs (Private) Limited (MGH5K382YN)}"
+if ! security find-identity -p codesigning ${CODESIGN_KEYCHAIN:+"$CODESIGN_KEYCHAIN"} | grep -qF "\"$IDENTITY\""; then
+  echo "error: \"$IDENTITY\" is not in the keychain. Use Scripts/sign.sh, or import ~/.vitals-signing/developer-id.p12." >&2
+  exit 1
 fi
-codesign --force --sign "$IDENTITY" "$APP"
-echo "Signed with: $IDENTITY"
+KEYCHAIN_ARGS=()
+[[ -n "${CODESIGN_KEYCHAIN:-}" ]] && KEYCHAIN_ARGS=(--keychain "$CODESIGN_KEYCHAIN")
+codesign --force --options runtime --timestamp "${KEYCHAIN_ARGS[@]}" --sign "$IDENTITY" "$APP"
+codesign --verify --strict --deep "$APP"
+echo "Signed with: $IDENTITY (hardened runtime)"
 
 echo "Built $PWD/$APP ($CHANNEL $VERSION, $COMMIT, macOS $MIN_OS+, SDK $SDK_VERSION)"
