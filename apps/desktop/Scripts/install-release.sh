@@ -15,6 +15,5 @@ for _ in {1..20}; do pgrep -xq Mulch || break; sleep 0.25; done
 
 rm -rf /Applications/Mulch.app
 ditto "$WORK/Mulch.app" /Applications/Mulch.app
-xattr -dr com.apple.quarantine /Applications/Mulch.app 2>/dev/null || true
 open /Applications/Mulch.app
 echo "Installed Mulch $(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' /Applications/Mulch.app/Contents/Info.plist)"
