@@ -29,9 +29,19 @@ export CODESIGN_KEYCHAIN="$(mktemp -d)/sign.keychain-db"
 KC_PW="$(openssl rand -base64 24)"
 trap 'security delete-keychain "$CODESIGN_KEYCHAIN" 2>/dev/null; rm -rf "${CODESIGN_KEYCHAIN:h}"' EXIT
 security create-keychain -p "$KC_PW" "$CODESIGN_KEYCHAIN"
+security set-keychain-settings -lut 21600 "$CODESIGN_KEYCHAIN"  # no 5-minute idle lock mid-build
 security unlock-keychain -p "$KC_PW" "$CODESIGN_KEYCHAIN"
 security import "$DIR/developer-id.p12" -k "$CODESIGN_KEYCHAIN" -P "$(<"$DIR/p12-password.txt")" -T /usr/bin/codesign >/dev/null
 security set-key-partition-list -S apple-tool:,apple: -s -k "$KC_PW" "$CODESIGN_KEYCHAIN" >/dev/null
+# Apple's Developer ID G2 intermediate completes the chain, as in CI, so a clean
+# Mac needs nothing else installed. The identity is checked in this keychain,
+# the one codesign actually signs from.
+curl --fail --silent --show-error --max-time 60 -o "${CODESIGN_KEYCHAIN:h}/DeveloperIDG2CA.cer" \
+  https://www.apple.com/certificateauthority/DeveloperIDG2CA.cer
+security import "${CODESIGN_KEYCHAIN:h}/DeveloperIDG2CA.cer" -k "$CODESIGN_KEYCHAIN" >/dev/null
+IDENTITIES="$(security find-identity -v -p codesigning "$CODESIGN_KEYCHAIN")"
+grep -qF "\"$CODESIGN_IDENTITY\"" <<< "$IDENTITIES" \
+  || { echo "\"$CODESIGN_IDENTITY\" is not a valid identity in $DIR/developer-id.p12." >&2; exit 1; }
 
 MULCH_CHANNEL=stable ./Scripts/build.sh
 ./Scripts/package.sh

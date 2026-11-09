@@ -74,7 +74,9 @@ cp "$ICON" "$APP/Contents/Resources/AppIcon.icns"
 # so no keychain dialog blocks a run. One binary, no nested code, no entitlements:
 # Mulch only spawns processes and uses SMAppService, which the runtime allows.
 IDENTITY="${CODESIGN_IDENTITY:-Developer ID Application: Syntax Labs (Private) Limited (MGH5K382YN)}"
-if ! security find-identity -p codesigning ${CODESIGN_KEYCHAIN:+"$CODESIGN_KEYCHAIN"} | grep -qF "\"$IDENTITY\""; then
+# Captured first: `grep -q` exiting early under pipefail can fail on SIGPIPE.
+IDENTITIES="$(security find-identity -p codesigning ${CODESIGN_KEYCHAIN:+"$CODESIGN_KEYCHAIN"})"
+if ! grep -qF "\"$IDENTITY\"" <<< "$IDENTITIES"; then
   echo "error: \"$IDENTITY\" is not in the keychain. Use Scripts/sign.sh, or import ~/.vitals-signing/developer-id.p12." >&2
   exit 1
 fi
