@@ -10,9 +10,10 @@ export const site = {
     "Mulch lives in your menu bar and clears the build output, caches and leftovers your dev tools pile up, once a week, while your Mac is idle.",
   repo,
   releases: `${repo}/releases`,
-  latest: { tag: "v3", href: `${repo}/releases/tag/v3` },
+  // Always the newest notarized release, so the page never needs a version bump.
+  latest: { tag: "Mulch.zip", href: `${repo}/releases/latest/download/Mulch.zip` },
   requirements: "macOS 26+, Apple silicon",
-  installCommand: ["gh repo clone rafay99-epic/mulch ~/Code/mulch", "~/Code/mulch/apps/desktop/Scripts/install-release.sh"],
+  installCommand: ["brew install --cask rafay99-epic/apps/mulch"],
   nav: [
     { href: "#how", label: "How it works" },
     { href: "#use", label: "How to use" },
